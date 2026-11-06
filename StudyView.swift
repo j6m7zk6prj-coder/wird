@@ -20,7 +20,7 @@ struct StudyView: View {
     @Environment(Tracker.self) private var tracker
     @Environment(Recitation.self) private var recitation
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("tajweed") private var tajweed = true
+    @AppStorage("tajweed") private var tajweed = false
     @AppStorage("quranSize") private var size = 30.0
     @AppStorage("reciter") private var reciterID = Reciter.all[0].id
     @State private var testMode = false
@@ -103,7 +103,7 @@ struct StudyView: View {
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 16)
                         .frame(height: 40)
-                        .foregroundStyle(testMode ? Color.white : Color.primary)
+                        .foregroundStyle(testMode ? Color.onBrand : Color.primary)
                         .background { if testMode { Capsule().fill(Color.brand.gradient) } }
                         .glassCapsule(interactive: true)
                 }
@@ -132,7 +132,7 @@ struct StudyView: View {
 
     private func surahHeader(_ s: Surah) -> some View {
         VStack(spacing: 4) {
-            Text("سُورَةُ " + s.ar).font(.custom(Fonts.quranName, size: 26)).foregroundStyle(Color.gold)
+            Text("سُورَةُ " + s.ar).font(.custom(Fonts.quranName, size: 26)).foregroundStyle(.secondary)
             if s.basmala, !Mushaf.basmala.isEmpty {
                 Text(Mushaf.basmala).font(.custom(Fonts.quranName, size: 22))
             }
@@ -175,7 +175,7 @@ struct StudyView: View {
                                 Image(systemName: g.symbol).font(.title3)
                                 Text(g.label).font(.caption.weight(.semibold))
                             }
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.onBrand)
                             .frame(maxWidth: .infinity)
                             .frame(height: 70)
                             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(g.color.gradient))
@@ -196,7 +196,7 @@ struct StudyView: View {
         let playingHere = recitation.current.map { c in ayat.contains(c.g) } ?? false
         return VStack(spacing: 8) {
             if let error = recitation.error {
-                Text(error).font(.caption).foregroundStyle(.red).padding(.horizontal, 12)
+                Text(error).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 12)
             }
             HStack(spacing: 14) {
                 Menu {
@@ -227,7 +227,7 @@ struct StudyView: View {
                             .font(.system(size: 9, weight: .heavy))
                             .padding(3)
                             .background(Circle().fill(Color.brand))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.onBrand)
                             .offset(x: 11, y: -10)
                     }
                     .frame(width: 40, height: 40)
@@ -239,16 +239,16 @@ struct StudyView: View {
                 } label: {
                     Group {
                         if recitation.loading && playingHere {
-                            ProgressView().tint(.white)
+                            ProgressView().tint(Color.onBrand)
                         } else {
                             Image(systemName: recitation.isPlaying && playingHere ? "pause.fill" : "play.fill")
                                 .font(.title2)
                         }
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.onBrand)
                     .frame(width: 62, height: 62)
                     .background(Circle().fill(Color.brand.gradient))
-                    .shadow(color: Color.brand.opacity(0.35), radius: 10, y: 4)
+                    .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
                 }
                 .buttonStyle(PressStyle())
                 .accessibilityLabel(recitation.isPlaying ? "Pause" : "Écouter")
@@ -316,10 +316,10 @@ struct AyahCard: View {
             HStack {
                 Text("\(r.ayah)")
                     .font(.caption.weight(.bold).monospacedDigit())
-                    .foregroundStyle(Color(Mushaf.ornament))
+                    .foregroundStyle(.secondary)
                     .padding(.horizontal, 9)
                     .frame(height: 24)
-                    .background(Capsule().fill(Color(Mushaf.ornament).opacity(0.12)))
+                    .background(Capsule().fill(Color.primary.opacity(0.07)))
                 if playing {
                     Image(systemName: "waveform")
                         .font(.caption.weight(.bold))
@@ -327,22 +327,22 @@ struct AyahCard: View {
                         .symbolEffect(.variableColor.iterative, options: .repeating)
                 }
                 Spacer()
-                Text("p. \(store.page(g))").font(.caption2).foregroundStyle(Color(Mushaf.ink).opacity(0.4))
+                Text("p. \(store.page(g))").font(.caption2).foregroundStyle(.tertiary)
             }
             if let ayah = store.ayah(g) {
                 if hidden {
                     let words = ayah.t.components(separatedBy: " ").count
                     let first = Mushaf.ayahText(ayah, number: r.ayah, piece: .init(ayah: r.ayah, from: 0, to: 1, total: words),
-                                                rules: store.rules, tajweed: tajweed, size: size)
+                                                rules: store.rules, tajweed: tajweed, size: size, ink: .label, ornament: .secondaryLabel)
                     VStack(alignment: .trailing, spacing: 8) {
                         QuranLabel(text: first.rightToLeft())
                         HStack(spacing: 6) {
                             ForEach(0..<min(5, max(1, words - 1)), id: \.self) { i in
-                                Capsule().fill(Color(Mushaf.ink).opacity(0.1)).frame(width: CGFloat(28 + (i * 17) % 40), height: 10)
+                                Capsule().fill(Color.primary.opacity(0.1)).frame(width: CGFloat(28 + (i * 17) % 40), height: 10)
                             }
                             Spacer()
                             Label("Touche pour voir", systemImage: "eye").font(.caption2.weight(.semibold))
-                                .foregroundStyle(Color(Mushaf.ink).opacity(0.45))
+                                .foregroundStyle(.secondary)
                         }
                         .environment(\.layoutDirection, .leftToRight)
                     }
@@ -350,19 +350,20 @@ struct AyahCard: View {
                     QuranLabel(text: Mushaf.ayahText(ayah, number: r.ayah,
                                                      piece: .init(ayah: r.ayah, from: 0, to: ayah.t.components(separatedBy: " ").count,
                                                                   total: ayah.t.components(separatedBy: " ").count),
-                                                     rules: store.rules, tajweed: tajweed, size: size).rightToLeft())
+                                                     rules: store.rules, tajweed: tajweed, size: size,
+                                                     ink: .label, ornament: .secondaryLabel).rightToLeft())
                 }
             }
         }
         .padding(16)
         .background {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(Color(Mushaf.paper))
+                .fill(Color(.secondarySystemGroupedBackground))
                 .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
         }
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(playing ? Color.brand : Color(Mushaf.ornament).opacity(0.25), lineWidth: playing ? 2.5 : 1)
+                .strokeBorder(playing ? Color.primary : Color.primary.opacity(0.08), lineWidth: playing ? 2 : 1)
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
@@ -393,9 +394,9 @@ struct RecorderSheet: View {
                             }
                         } label: {
                             ZStack {
-                                Circle().fill(Color.red.opacity(0.15)).frame(width: 86, height: 86)
+                                Circle().strokeBorder(Color.primary, lineWidth: 3).frame(width: 86, height: 86)
                                 RoundedRectangle(cornerRadius: recorder.recording ? 8 : 30, style: .continuous)
-                                    .fill(Color.red)
+                                    .fill(Color.primary)
                                     .frame(width: recorder.recording ? 30 : 60, height: recorder.recording ? 30 : 60)
                             }
                         }
@@ -404,7 +405,7 @@ struct RecorderSheet: View {
                         .accessibilityLabel(recorder.recording ? "Arrêter" : "Enregistrer")
                         if recorder.denied {
                             Text("Autorise le micro dans Réglages › Wird pour t’enregistrer.")
-                                .font(.caption).foregroundStyle(.red).multilineTextAlignment(.center)
+                                .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
                         }
                     }
                     .frame(maxWidth: .infinity)

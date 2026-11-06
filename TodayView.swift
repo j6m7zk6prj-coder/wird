@@ -110,9 +110,9 @@ struct TodayView: View {
             .frame(width: 70, height: 70)
             VStack(alignment: .leading, spacing: 3) {
                 Text(Dates.long(.now).capitalized(with: Dates.fr)).font(.headline)
-                Text(Dates.hijri(.now)).font(.subheadline).foregroundStyle(Color.gold)
+                Text(Dates.hijri(.now)).font(.subheadline).foregroundStyle(.secondary)
                 HStack(spacing: 6) {
-                    Image(systemName: "flame.fill").foregroundStyle(.orange)
+                    Image(systemName: "flame.fill")
                     Text(tracker.streak == 0 ? "Commence ta série aujourd’hui" : "\(tracker.streak) jour\(tracker.streak > 1 ? "s" : "") d’affilée")
                 }
                 .font(.caption.weight(.semibold))
@@ -171,7 +171,7 @@ struct TaskCard: View {
             HStack(spacing: 10) {
                 Image(systemName: plan.kind.symbol)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.onBrand)
                     .frame(width: 32, height: 32)
                     .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(plan.kind.color.gradient))
                 VStack(alignment: .leading, spacing: 1) {
@@ -197,7 +197,7 @@ struct TaskCard: View {
                 }
             } else if t.rest {
                 HStack {
-                    Label("Jour de repos", systemImage: "leaf.fill").font(.subheadline.weight(.semibold)).foregroundStyle(.green)
+                    Label("Jour de repos", systemImage: "leaf.fill").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                     Spacer()
                     Button("Avancer quand même") { tracker.complete(plan.id, store) }.font(.subheadline)
                 }
@@ -207,13 +207,13 @@ struct TaskCard: View {
                     Text(store.label(from: ayat.first ?? 0, to: ayat.last ?? 0))
                         .font(.title3.weight(.semibold))
                     let pages = store.pages(of: ayat)
-                    Text(detail(ayat.count, pages))
+                    Text(detail(ayat, pages))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     if plan.mode == .deadline, plan.initialPerDay > 0, t.perDay > plan.initialPerDay {
                         Label("Un peu de retard : \(plan.unit.count(t.perDay)) par jour au lieu de \(plan.initialPerDay)", systemImage: "exclamationmark.circle")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 HStack(spacing: 10) {
@@ -246,10 +246,12 @@ struct TaskCard: View {
         }
     }
 
-    private func detail(_ count: Int, _ pages: [Int]) -> String {
+    private func detail(_ ayat: [Int], _ pages: [Int]) -> String {
         var parts: [String] = []
-        if plan.unit == .pages { parts.append(PlanUnit.pages.count(pages.count)) }
-        parts.append(PlanUnit.ayahs.count(count))
+        if plan.unit != .ayahs, plan.unit != .pages {
+            parts.append(plan.unit.count(max(1, store.count(ayat, in: plan.unit))))
+        }
+        parts.append(PlanUnit.ayahs.count(ayat.count))
         parts.append((pages.count > 1 ? "pages " : "page ") + pageText(pages))
         return parts.joined(separator: " · ")
     }
@@ -315,9 +317,10 @@ struct PageRow: View {
                 HStack(spacing: 12) {
                     Text("\(page)")
                         .font(.headline.monospacedDigit())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .frame(width: 46, height: 46)
-                        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(s.color.gradient))
+                        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.primary.opacity(0.07)))
+                        .overlay(alignment: .bottomTrailing) { StrengthDot(strength: s).offset(x: 3, y: 3) }
                     VStack(alignment: .leading, spacing: 2) {
                         Text(store.surahs(onPage: page).map { store.name($0) }.joined(separator: ", "))
                             .font(.subheadline.weight(.semibold))

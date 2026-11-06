@@ -77,7 +77,8 @@ enum Mushaf {
 
     /// Le texte d'un verset (ou d'une partie), coloré selon le tajwid, suivi du numéro du verset.
     static func ayahText(_ ayah: Ayah, number: Int, piece: Piece, rules: [String], tajweed: Bool,
-                         size: CGFloat = fontSize, ink: UIColor = Mushaf.ink) -> NSAttributedString {
+                         size: CGFloat = fontSize, ink: UIColor = Mushaf.ink,
+                         ornament: UIColor = Mushaf.ornament) -> NSAttributedString {
         let font = Fonts.quran(size)
         let full = ayah.t as NSString
         // Bornes du morceau, en caractères (les mots sont séparés par des espaces).

@@ -62,11 +62,11 @@ struct BigButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.onBrand)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(Capsule().fill(color.gradient))
-            .shadow(color: color.opacity(0.3), radius: 12, y: 5)
+            .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
@@ -78,14 +78,7 @@ struct AppBackground: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        ZStack {
-            Color(.systemGroupedBackground)
-            RadialGradient(colors: [tint.opacity(scheme == .dark ? 0.30 : 0.14), .clear],
-                           center: .topLeading, startRadius: 10, endRadius: 520)
-            RadialGradient(colors: [Color.gold.opacity(scheme == .dark ? 0.14 : 0.12), .clear],
-                           center: .bottomTrailing, startRadius: 10, endRadius: 480)
-        }
-        .ignoresSafeArea()
+        Color(.systemGroupedBackground).ignoresSafeArea()
     }
 }
 
@@ -97,7 +90,7 @@ struct Ring: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(color.opacity(0.15), lineWidth: width)
+            Circle().stroke(color.opacity(0.1), lineWidth: width)
             Circle()
                 .trim(from: 0, to: max(0.001, min(1, value)))
                 .stroke(color.gradient, style: StrokeStyle(lineWidth: width, lineCap: .round))

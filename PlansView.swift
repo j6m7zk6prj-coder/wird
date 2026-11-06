@@ -144,7 +144,7 @@ struct PlanDetail: View {
                     Button { editing = true } label: { Label("Modifier le rythme ou la date", systemImage: "slider.horizontal.3") }
                         .buttonStyle(BigButtonStyle(color: plan.kind.color))
                     Button(role: .destructive) { confirmDelete = true } label: {
-                        Text("Supprimer l’objectif").font(.subheadline.weight(.semibold)).foregroundStyle(.red)
+                        Text("Supprimer l’objectif").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                     }
                     .padding(.top, 4)
                 }
@@ -215,7 +215,7 @@ struct MonthCalendar: View {
             }
             HStack(spacing: 14) {
                 legend(Color.brand, "Fait")
-                legend(Color(hex: 0xE0554A).opacity(0.7), "Raté")
+                legend(Color.primary.opacity(0.3), "Raté")
                 legend(plan.kind.color.opacity(0.25), "Prévu")
                 legend(Color.primary.opacity(0.08), "Repos")
             }
@@ -245,13 +245,13 @@ struct MonthCalendar: View {
                                                 to: Day.calendar.date(from: Day.calendar.dateComponents([.year, .month], from: month)) ?? month) ?? month) == Day.key(.now)
         return Text("\(day)")
             .font(.footnote.weight(isToday ? .heavy : .medium).monospacedDigit())
-            .foregroundStyle(s == .done ? Color.white : Color.primary)
+            .foregroundStyle(s == .done ? Color.onBrand : Color.primary)
             .frame(maxWidth: .infinity)
             .frame(height: 36)
             .background {
                 switch s {
                 case .done: Circle().fill(Color.brand.gradient)
-                case .missed: Circle().strokeBorder(Color(hex: 0xE0554A).opacity(0.7), lineWidth: 2)
+                case .missed: Circle().strokeBorder(Color.primary.opacity(0.35), style: StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
                 case .planned: Circle().fill(plan.kind.color.opacity(0.18))
                 case .rest: Circle().fill(Color.primary.opacity(0.06))
                 case .empty: Color.clear
@@ -272,12 +272,13 @@ struct MonthCalendar: View {
 
 struct PlanEditor: View {
     enum Scope: String, CaseIterable, Identifiable {
-        case surahs, juz, pages
+        case surahs, juz, hizb, pages
         var id: String { rawValue }
         var label: String {
             switch self {
             case .surahs: return "Sourates"
             case .juz: return "Juz"
+            case .hizb: return "Hizb"
             case .pages: return "Pages"
             }
         }
@@ -296,6 +297,8 @@ struct PlanEditor: View {
     @State private var toSurah = 1
     @State private var fromJuz = 30
     @State private var toJuz = 30
+    @State private var fromHizb = 1
+    @State private var toHizb = 60
     @State private var fromPage = 1
     @State private var toPage = 604
     @State private var reversed = false
@@ -356,6 +359,9 @@ struct PlanEditor: View {
                         case .juz:
                             Stepper("Du juz \(fromJuz)", value: $fromJuz, in: 1...30)
                             Stepper("Au juz \(toJuz)", value: $toJuz, in: 1...30)
+                        case .hizb:
+                            Stepper("Du hizb \(fromHizb)", value: $fromHizb, in: 1...60)
+                            Stepper("Au hizb \(toHizb)", value: $toHizb, in: 1...60)
                         case .pages:
                             Stepper("De la page \(fromPage)", value: $fromPage, in: 1...604)
                             Stepper("À la page \(toPage)", value: $toPage, in: 1...604)
@@ -372,11 +378,28 @@ struct PlanEditor: View {
                     }
                 }
 
-                Section("Comment ?") {
-                    Picker("Compter en", selection: $unit) {
-                        ForEach(PlanUnit.allCases) { Text($0.label).tag($0) }
+                Section {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                        ForEach(PlanUnit.allCases) { u in
+                            Button {
+                                unit = u
+                                pace = min(pace, u.maxPerDay)
+                            } label: {
+                                VStack(spacing: 1) {
+                                    Text(u.label).font(.subheadline.weight(.bold))
+                                    Text(u.hint).font(.caption2)
+                                        .foregroundStyle(unit == u ? Color.onBrand.opacity(0.75) : Color.secondary)
+                                }
+                                .foregroundStyle(unit == u ? Color.onBrand : Color.primary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(unit == u ? Color.primary : Color.primary.opacity(0.06)))
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
-                    .pickerStyle(.segmented)
+                    .padding(.vertical, 4)
                     Picker("Je choisis", selection: $mode) {
                         Text("Une date de fin").tag(PlanMode.deadline)
                         Text("Un rythme").tag(PlanMode.pace)
@@ -386,7 +409,7 @@ struct PlanEditor: View {
                                    in: Day.start(.now)..., displayedComponents: .date)
                             .environment(\.locale, Dates.fr)
                     } else {
-                        Stepper("\(unit.count(pace)) par jour", value: $pace, in: 1...(unit == .ayahs ? 300 : 40))
+                        Stepper("\(unit.count(pace)) par jour", value: $pace, in: 1...unit.maxPerDay)
                     }
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Jours de repos").font(.subheadline)
@@ -401,8 +424,8 @@ struct PlanEditor: View {
                                         .font(.subheadline.weight(.bold))
                                         .frame(maxWidth: .infinity)
                                         .frame(height: 36)
-                                        .foregroundStyle(on ? Color.white : Color.primary)
-                                        .background(Circle().fill(on ? Color.gold : Color.primary.opacity(0.07)))
+                                        .foregroundStyle(on ? Color.onBrand : Color.primary)
+                                        .background(Circle().fill(on ? Color.primary : Color.primary.opacity(0.07)))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -412,6 +435,14 @@ struct PlanEditor: View {
                     if kind != .memorize {
                         Toggle("Recommencer quand c’est fini", isOn: $repeats)
                     }
+                } header: {
+                    Text("Comment ?")
+                }
+
+                Section {
+                    landmarks
+                } header: {
+                    Text("Repères")
                 }
 
                 Section {
@@ -452,6 +483,7 @@ struct PlanEditor: View {
 
     private var presets: [(String, () -> Void)] {
         [
+            ("1 hizb par jour", { kind = .review; scope = .hizb; fromHizb = 1; toHizb = 60; reversed = false; unit = .hizb; mode = .pace; pace = 1; repeats = true }),
             ("Juz Amma", { kind = .memorize; scope = .juz; fromJuz = 30; toJuz = 30; reversed = true; unit = .ayahs }),
             ("Juz Tabarak", { kind = .memorize; scope = .juz; fromJuz = 29; toJuz = 29; reversed = false; unit = .ayahs }),
             ("Al-Kahf", { kind = .memorize; scope = .surahs; fromSurah = 18; toSurah = 18; reversed = false }),
@@ -472,6 +504,9 @@ struct PlanEditor: View {
         case .juz:
             let a = min(fromJuz, toJuz), b = max(fromJuz, toJuz)
             range = store.juzRange(a).lowerBound..<store.juzRange(b).upperBound
+        case .hizb:
+            let a = min(fromHizb, toHizb), b = max(fromHizb, toHizb)
+            range = store.hizbRange(a).lowerBound..<store.hizbRange(b).upperBound
         case .pages:
             let a = min(fromPage, toPage), b = max(fromPage, toPage)
             range = store.pageRange(a).lowerBound..<store.pageRange(b).upperBound
@@ -500,6 +535,10 @@ struct PlanEditor: View {
             if a == b && a == 30 { return "\(k) Juz Amma" }
             if a == b && a == 29 { return "\(k) Juz Tabarak" }
             return a == b ? "\(k) le juz \(a)" : "\(k) les juz \(a) à \(b)"
+        case .hizb:
+            let a = min(fromHizb, toHizb), b = max(fromHizb, toHizb)
+            if a == 1 && b == 60 { return kind == .read ? "Lire tout le Coran" : "\(k) tout le Coran" }
+            return a == b ? "\(k) le hizb \(a)" : "\(k) les hizb \(a) à \(b)"
         case .pages:
             return "\(k) les pages \(min(fromPage, toPage)) à \(max(fromPage, toPage))"
         }
@@ -524,24 +563,71 @@ struct PlanEditor: View {
         return p
     }
 
+    /// Les équivalences : juz, hizb, nisf, rub‘, pages, et ce que fait ta sélection.
+    private var landmarks: some View {
+        let seq = draft.sequence
+        return VStack(alignment: .leading, spacing: 10) {
+            landmark("1 juz", "2 hizb · 4 nisf · 8 rub‘ · ≈ 20 pages")
+            landmark("1 hizb", "2 nisf · 4 rub‘ · ≈ 10 pages")
+            landmark("1 nisf", "2 rub‘ · ≈ 5 pages")
+            landmark("1 rub‘", "¼ de hizb · ≈ 2,5 pages")
+            landmark("1 page", "15 lignes du Mushaf de Médine")
+            if !seq.isEmpty {
+                Divider()
+                Text("TA SÉLECTION").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                Text(selectionText(seq)).font(.subheadline.weight(.semibold))
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func landmark(_ a: String, _ b: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(a).font(.subheadline.weight(.bold)).frame(width: 64, alignment: .leading)
+            Text("= " + b).font(.subheadline).foregroundStyle(.secondary)
+        }
+    }
+
+    private func selectionText(_ seq: [Int]) -> String {
+        let rubs = store.count(seq, in: .rub)
+        let pages = store.count(seq, in: .pages)
+        var parts: [String] = []
+        if rubs >= 8 { parts.append("≈ " + quarters(Double(rubs) / 8, "juz")) }
+        if rubs >= 4 { parts.append("≈ " + quarters(Double(rubs) / 4, "hizb")) }
+        parts.append("\(rubs) rub‘")
+        parts.append(PlanUnit.pages.count(pages))
+        parts.append(PlanUnit.ayahs.count(seq.count))
+        return parts.joined(separator: " · ")
+    }
+
+    /// « 2,5 hizb ».
+    private func quarters(_ v: Double, _ unit: String) -> String {
+        let r = (v * 4).rounded() / 4
+        let text = r == r.rounded() ? "\(Int(r))" : String(format: "%.2f", r).replacingOccurrences(of: ".", with: ",")
+            .replacingOccurrences(of: ",50", with: ",5")
+        return "\(text) \(unit)"
+    }
+
     private var preview: some View {
         let p = draft
         let t = p.task(store)
         let seq = p.sequence
+        let rest = Array(seq[min(p.position, seq.count)...])
         let units = p.units(seq, from: min(p.position, seq.count), to: seq.count, store)
-        let ayahsPerDay = p.unit == .pages && units > 0 ? Double(seq.count - min(p.position, seq.count)) / Double(units) * Double(t.perDay) : 0
+        let perUnitAyahs = units > 0 ? Double(rest.count) / Double(units) : 0
+        let perUnitPages = units > 0 ? Double(store.count(rest, in: .pages)) / Double(units) : 0
         return VStack(spacing: 6) {
             if p.total == 0 {
                 Text("Choisis ce que tu veux faire.").foregroundStyle(.secondary)
             } else {
                 Text(p.unit.count(t.perDay))
                     .font(.system(size: 40, weight: .bold, design: .rounded))
-                    .foregroundStyle(p.kind.color)
                     .contentTransition(.numericText())
                 Text("par jour").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                if p.unit == .pages, ayahsPerDay > 0 {
-                    Text("≈ \(Int(ayahsPerDay.rounded())) versets par jour").font(.footnote).foregroundStyle(.secondary)
-                }
+                Text(perDayText(p.unit, t.perDay, perUnitPages, perUnitAyahs))
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                 Divider().padding(.vertical, 6)
                 HStack {
                     VStack(spacing: 2) {
@@ -566,6 +652,21 @@ struct PlanEditor: View {
         .padding(18)
         .glass(24)
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: t.perDay)
+    }
+
+    /// « ≈ 10 pages · ≈ 90 versets par jour ».
+    private func perDayText(_ unit: PlanUnit, _ n: Int, _ pages: Double, _ ayahs: Double) -> String {
+        var parts: [String] = []
+        if unit != .pages && unit != .ayahs, pages > 0 {
+            let v = pages * Double(n)
+            parts.append("≈ " + (v < 10 ? String(format: "%.1f", v).replacingOccurrences(of: ".", with: ",") : "\(Int(v.rounded()))") + " pages")
+        }
+        if unit != .ayahs, ayahs > 0 { parts.append("≈ \(Int((ayahs * Double(n)).rounded())) versets") }
+        if unit == .ayahs, pages > 0, ayahs > 0 {
+            let v = Double(n) / ayahs * pages
+            parts.append("≈ " + String(format: "%.1f", v).replacingOccurrences(of: ".", with: ",") + " page")
+        }
+        return parts.isEmpty ? "" : parts.joined(separator: " · ") + " par jour"
     }
 
     private func setup() {

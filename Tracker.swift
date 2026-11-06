@@ -25,8 +25,8 @@ enum PlanKind: String, Codable, CaseIterable, Identifiable {
     var color: Color {
         switch self {
         case .memorize: return .brand
-        case .review: return .gold
-        case .read: return Color(hex: 0x3F7FBF)
+        case .review: return .brand
+        case .read: return .brand
         }
     }
 
@@ -41,14 +41,52 @@ enum PlanKind: String, Codable, CaseIterable, Identifiable {
 }
 
 enum PlanUnit: String, Codable, CaseIterable, Identifiable {
-    case ayahs, pages
+    case ayahs, pages, rub, nisf, hizb, juz
     var id: String { rawValue }
-    var label: String { self == .ayahs ? "Versets" : "Pages" }
+
+    var label: String {
+        switch self {
+        case .ayahs: return "Versets"
+        case .pages: return "Pages"
+        case .rub: return "Rub‘"
+        case .nisf: return "Nisf"
+        case .hizb: return "Hizb"
+        case .juz: return "Juz"
+        }
+    }
+
+    /// Explication courte : « ¼ de hizb ».
+    var hint: String {
+        switch self {
+        case .ayahs: return "un par un"
+        case .pages: return "du Mushaf"
+        case .rub: return "¼ de hizb"
+        case .nisf: return "½ hizb"
+        case .hizb: return "½ juz"
+        case .juz: return "1/30 du Coran"
+        }
+    }
 
     func count(_ n: Int) -> String {
         switch self {
         case .ayahs: return "\(n) verset\(n > 1 ? "s" : "")"
         case .pages: return "\(n) page\(n > 1 ? "s" : "")"
+        case .rub: return "\(n) rub‘"
+        case .nisf: return "\(n) nisf"
+        case .hizb: return "\(n) hizb"
+        case .juz: return "\(n) juz"
+        }
+    }
+
+    /// Le maximum raisonnable par jour.
+    var maxPerDay: Int {
+        switch self {
+        case .ayahs: return 300
+        case .pages: return 40
+        case .rub: return 40
+        case .nisf: return 20
+        case .hizb: return 20
+        case .juz: return 10
         }
     }
 }
@@ -134,39 +172,33 @@ enum Day {
 
 @MainActor
 extension Plan {
-    /// Nombre d'unités (versets ou pages) entre deux positions de la liste.
+    /// Nombre d'unités (versets, pages, rub‘, hizb…) entre deux positions de la liste.
     func units(_ seq: [Int], from a: Int, to b: Int, _ q: QuranStore) -> Int {
         guard b > a else { return 0 }
-        switch unit {
-        case .ayahs: return b - a
-        case .pages:
-            var n = 0, last = -1
-            for i in a..<min(b, seq.count) {
-                let p = q.page(seq[i])
-                if p != last { n += 1; last = p }
-            }
-            return n
+        if unit == .ayahs { return b - a }
+        var n = 0, last = -1
+        for i in a..<min(b, seq.count) {
+            let blk = q.block(seq[i], unit)
+            if blk != last { n += 1; last = blk }
         }
+        return n
     }
 
     /// Avance de `n` unités à partir de la position `a`.
     func advance(_ seq: [Int], from a: Int, by n: Int, _ q: QuranStore) -> Int {
         guard n > 0 else { return a }
-        switch unit {
-        case .ayahs: return min(seq.count, a + n)
-        case .pages:
-            var count = 0, last = -1, i = a
-            while i < seq.count {
-                let p = q.page(seq[i])
-                if p != last {
-                    if count == n { break }
-                    count += 1
-                    last = p
-                }
-                i += 1
+        if unit == .ayahs { return min(seq.count, a + n) }
+        var count = 0, last = -1, i = a
+        while i < seq.count {
+            let blk = q.block(seq[i], unit)
+            if blk != last {
+                if count == n { break }
+                count += 1
+                last = blk
             }
-            return i
+            i += 1
         }
+        return i
     }
 
     /// Jours de travail entre deux dates (incluses), sans les jours de repos.
@@ -256,11 +288,11 @@ enum Strength: Int {
 
     var color: Color {
         switch self {
-        case .none: return Color.primary.opacity(0.08)
-        case .partial: return Color.brand.opacity(0.3)
-        case .solid: return Color(hex: 0x2FA36B)
-        case .soon: return Color(hex: 0xE9A23B)
-        case .weak: return Color(hex: 0xE0554A)
+        case .none: return Color.primary.opacity(0.05)
+        case .partial: return Color.primary.opacity(0.14)
+        case .solid: return Color.primary
+        case .soon: return Color.primary.opacity(0.55)
+        case .weak: return Color.primary.opacity(0.3)
         }
     }
 
@@ -294,9 +326,9 @@ enum Grade: Int, CaseIterable, Identifiable {
     }
     var color: Color {
         switch self {
-        case .hard: return Color(hex: 0xE0554A)
-        case .ok: return Color(hex: 0xE9A23B)
-        case .easy: return Color(hex: 0x2FA36B)
+        case .hard: return .brand
+        case .ok: return .brand
+        case .easy: return .brand
         }
     }
 }
@@ -518,6 +550,10 @@ final class Tracker {
         }.count
     }
 
+    func completeHizb(_ q: QuranStore) -> Int {
+        (1...60).filter { h in q.hizbRange(h).allSatisfy { known.contains($0) } }.count
+    }
+
     func completeJuz(_ q: QuranStore) -> Int {
         (1...30).filter { j in q.juzRange(j).allSatisfy { known.contains($0) } }.count
     }
@@ -560,6 +596,9 @@ final class Tracker {
 }
 
 extension Color {
-    static let brand = Color(hex: 0x17876A)
-    static let gold = Color(hex: 0xB8924A)
+    /// Wird est en noir et blanc : noir en thème clair, blanc en thème sombre.
+    static let brand = Color.primary
+    static let gold = Color.secondary
+    /// Le texte posé sur un fond `brand` (blanc en clair, noir en sombre).
+    static let onBrand = Color(uiColor: .systemBackground)
 }

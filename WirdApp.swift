@@ -14,7 +14,7 @@ struct WirdApp: App {
                 .environment(tracker)
                 .environment(recitation)
                 .environment(recorder)
-                .tint(.brand)
+                .tint(Color.primary)
                 .task { await store.load() }
         }
     }
@@ -24,6 +24,8 @@ struct WirdApp: App {
 struct RootView: View {
     @Environment(QuranStore.self) private var store
     @AppStorage("tab") private var tab = 0
+    /// 0 = comme l'iPhone, 1 = clair, 2 = sombre.
+    @AppStorage("theme") private var theme = 0
 
     var body: some View {
         Group {
@@ -31,7 +33,7 @@ struct RootView: View {
                 ContentUnavailableView("Problème", systemImage: "exclamationmark.triangle", description: Text(error))
             } else if !store.loaded {
                 VStack(spacing: 14) {
-                    Text("وِرْد").font(.custom(Fonts.quranName, size: 54)).foregroundStyle(Color.brand)
+                    Text("وِرْد").font(.custom(Fonts.quranName, size: 54))
                     ProgressView()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -44,15 +46,23 @@ struct RootView: View {
                     NavigationStack { PlansView() }
                         .tabItem { Label("Objectifs", systemImage: "target") }
                         .tag(1)
-                    NavigationStack { LibraryView() }
-                        .tabItem { Label("Coran", systemImage: "book.fill") }
-                        .tag(2)
                     NavigationStack { ProgressTab() }
                         .tabItem { Label("Progrès", systemImage: "chart.bar.fill") }
                         .tag(3)
                 }
                 .overlay(alignment: .top) { Banner() }
+                .onAppear { if tab == 2 { tab = 0 } }
             }
+        }
+        .onAppear(perform: applyTheme)
+        .onChange(of: theme) { applyTheme() }
+    }
+
+    /// Clair, sombre ou comme l'iPhone : appliqué à toute l'app (fenêtres et feuilles).
+    private func applyTheme() {
+        let style: UIUserInterfaceStyle = theme == 1 ? .light : theme == 2 ? .dark : .unspecified
+        for scene in UIApplication.shared.connectedScenes {
+            (scene as? UIWindowScene)?.windows.forEach { $0.overrideUserInterfaceStyle = style }
         }
     }
 }
@@ -80,10 +90,9 @@ struct LibraryView: View {
                         HStack(spacing: 14) {
                             Image(systemName: "book.fill")
                                 .font(.title2)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color.onBrand)
                                 .frame(width: 52, height: 52)
-                                .background(LinearGradient(colors: [Color(hex: 0x1F8A66), Color(hex: 0x0F5A43)],
-                                                           startPoint: .top, endPoint: .bottom),
+                                .background(Color.primary,
                                             in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Reprendre la lecture").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
@@ -150,7 +159,7 @@ struct SurahRow: View {
             Spacer()
             Text(surah.ar)
                 .font(.custom(Fonts.quranName, size: 22))
-                .foregroundStyle(Color(hex: 0x0F5A43))
+                .foregroundStyle(.primary)
         }
         .padding(.vertical, 2)
         .contentShape(Rectangle())

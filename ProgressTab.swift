@@ -1,62 +1,18 @@
 import SwiftUI
-import Charts
 
-// MARK: - Progrès : chiffres, graphique, carte des 604 pages, badges
+// MARK: - Progrès : ce que tu connais, ta régularité, ta mémoire, juz par juz
 
 struct ProgressTab: View {
     @Environment(QuranStore.self) private var store
     @Environment(Tracker.self) private var tracker
-    @State private var view = 0
-    @State private var selectedPage: Int?
 
     var body: some View {
-        let pages = tracker.learnedPages(store)
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                // Le gros chiffre.
-                HStack(spacing: 18) {
-                    ZStack {
-                        Ring(value: Double(tracker.known.count) / Double(QuranStore.ayahCount), width: 12)
-                        VStack(spacing: 0) {
-                            Text(percent(Double(tracker.known.count) / Double(QuranStore.ayahCount)))
-                                .font(.system(size: 22, weight: .bold, design: .rounded))
-                            Text("du Coran").font(.caption2).foregroundStyle(.secondary)
-                        }
-                    }
-                    .frame(width: 110, height: 110)
-                    VStack(alignment: .leading, spacing: 8) {
-                        line("\(pages) / 604", "pages apprises")
-                        line("\(tracker.known.count)", "versets appris")
-                        line("\(tracker.completeJuz(store)) juz · \(tracker.completeSurahs(store)) sourates", "complets")
-                    }
-                    Spacer(minLength: 0)
-                }
-                .padding(18)
-                .glass(26)
-
-                HStack(spacing: 12) {
-                    tile("flame.fill", .orange, "\(tracker.streak)", "jours d’affilée")
-                    tile("trophy.fill", .gold, "\(tracker.bestStreak)", "meilleure série")
-                    tile("arrow.triangle.2.circlepath", .brand, "\(tracker.memory.values.reduce(0) { $0 + $1.reviews })", "révisions")
-                }
-
-                chart
-
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Text("Ta carte du Coran").font(.title3.bold())
-                        Spacer()
-                        Picker("Vue", selection: $view) {
-                            Text("Pages").tag(0)
-                            Text("Sourates").tag(1)
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 180)
-                    }
-                    legend
-                    if view == 0 { pageMap } else { surahList }
-                }
-
+            VStack(alignment: .leading, spacing: 20) {
+                KnowledgeCard()
+                RegularityCard()
+                MemoryCard()
+                JuzList()
                 Badges()
             }
             .padding(20)
@@ -64,135 +20,355 @@ struct ProgressTab: View {
         .scrollIndicators(.hidden)
         .background { AppBackground() }
         .navigationTitle("Progrès")
-        .sheet(item: Binding(get: { selectedPage.map(PageID.init) }, set: { selectedPage = $0?.page })) { p in
+    }
+}
+
+/// Une carte avec un titre et une phrase d'explication.
+struct Card<Content: View>: View {
+    let title: String
+    var subtitle: String? = nil
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.title3.bold())
+                if let subtitle { Text(subtitle).font(.footnote).foregroundStyle(.secondary) }
+            }
+            content
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .glass(24)
+    }
+}
+
+/// Une barre de progression simple, noire (ou blanche en sombre).
+struct Bar: View {
+    let value: Double
+    var height: CGFloat = 8
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.primary.opacity(0.08))
+                Capsule().fill(Color.primary)
+                    .frame(width: value > 0 ? max(height, geo.size.width * CGFloat(min(1, value))) : 0)
+            }
+        }
+        .frame(height: height)
+        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: value)
+    }
+}
+
+// MARK: 1. Ce que tu connais
+
+private struct KnowledgeCard: View {
+    @Environment(QuranStore.self) private var store
+    @Environment(Tracker.self) private var tracker
+
+    var body: some View {
+        let share = Double(tracker.known.count) / Double(QuranStore.ayahCount)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("TU CONNAIS PAR CŒUR").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(percent(share)).font(.system(size: 48, weight: .bold, design: .rounded))
+                Text("du Coran").font(.title3.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            Bar(value: share, height: 10)
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
+                GridRow {
+                    number("\(tracker.learnedPages(store))", "/ 604", "pages")
+                    number("\(tracker.completeHizb(store))", "/ 60", "hizb")
+                }
+                GridRow {
+                    number("\(tracker.completeJuz(store))", "/ 30", "juz")
+                    number("\(tracker.completeSurahs(store))", "/ 114", "sourates")
+                }
+            }
+            Text("On ne compte que ce qui est su en entier : une page à moitié apprise n’est pas encore comptée.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .glass(26)
+    }
+
+    private func percent(_ v: Double) -> String {
+        if v <= 0 { return "0 %" }
+        if v < 0.01 { return "< 1 %" }
+        return "\(Int((v * 100).rounded())) %"
+    }
+
+    private func number(_ v: String, _ total: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                Text(v).font(.title2.bold().monospacedDigit())
+                Text(total).font(.subheadline.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.05)))
+    }
+}
+
+// MARK: 2. Ta régularité
+
+private struct RegularityCard: View {
+    @Environment(Tracker.self) private var tracker
+
+    var body: some View {
+        let days = (0..<7).reversed().map { Day.add(-$0, to: Day.start(.now)) }
+        let week = days.reduce(DayActivity()) { sum, d in
+            let a = tracker.activity[Day.key(d)] ?? DayActivity()
+            return DayActivity(learned: sum.learned + a.learned, reviewed: sum.reviewed + a.reviewed, read: sum.read + a.read)
+        }
+        Card(title: "Ta régularité", subtitle: "Un jour compte dès que tu as appris, révisé ou lu quelque chose.") {
+            HStack(spacing: 0) {
+                ForEach(days, id: \.self) { d in
+                    let active = (tracker.activity[Day.key(d)]?.total ?? 0) > 0
+                    let today = Day.key(d) == Day.key(.now)
+                    VStack(spacing: 6) {
+                        ZStack {
+                            Circle()
+                                .fill(active ? Color.primary : Color.primary.opacity(0.06))
+                            if active {
+                                Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(Color.onBrand)
+                            }
+                        }
+                        .frame(width: 34, height: 34)
+                        .overlay { if today { Circle().strokeBorder(Color.primary, lineWidth: 1.5).padding(-4) } }
+                        Text(letter(d)).font(.caption2.weight(today ? .bold : .regular)).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            HStack(spacing: 10) {
+                Image(systemName: "flame.fill")
+                Text(tracker.streak == 0 ? "Pas de série en cours" : "\(tracker.streak) jour\(tracker.streak > 1 ? "s" : "") d’affilée")
+                    .font(.headline)
+                Spacer()
+                Text("Record : \(max(tracker.bestStreak, tracker.streak))").font(.subheadline).foregroundStyle(.secondary)
+            }
+            Divider()
+            VStack(alignment: .leading, spacing: 6) {
+                Text("CES 7 DERNIERS JOURS").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
+                line("Versets appris", week.learned)
+                line("Pages révisées", week.reviewed)
+                line("Versets lus", week.read)
+            }
+        }
+    }
+
+    private func letter(_ d: Date) -> String {
+        Day.week.first { $0.0 == Day.weekday(d) }?.1 ?? ""
+    }
+
+    private func line(_ label: String, _ v: Int) -> some View {
+        HStack {
+            Text(label).font(.subheadline)
+            Spacer()
+            Text("\(v)").font(.subheadline.weight(.semibold).monospacedDigit())
+        }
+    }
+}
+
+// MARK: 3. Ta mémoire
+
+/// Le petit rond qui montre la solidité d'une page.
+struct StrengthDot: View {
+    let strength: Strength
+    var size: CGFloat = 12
+
+    var body: some View {
+        Group {
+            switch strength {
+            case .solid: Circle().fill(Color.primary)
+            case .soon: Circle().fill(Color.primary.opacity(0.45))
+            case .weak: Circle().strokeBorder(Color.primary, lineWidth: 1.6)
+            case .partial: Circle().strokeBorder(Color.primary.opacity(0.45), style: StrokeStyle(lineWidth: 1.4, dash: [2, 2]))
+            case .none: Circle().fill(Color.primary.opacity(0.08))
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+private struct MemoryCard: View {
+    @Environment(QuranStore.self) private var store
+    @Environment(Tracker.self) private var tracker
+
+    var body: some View {
+        let states = tracker.memory.keys.map { tracker.strength($0, store) }
+        let solid = states.filter { $0 == .solid }.count
+        let soon = states.filter { $0 == .soon }.count
+        let weak = states.filter { $0 == .weak }.count
+        let total = max(1, solid + soon + weak)
+        Card(title: "Ta mémoire", subtitle: "L’état des pages que tu connais. Chaque révision les rend plus solides.") {
+            if solid + soon + weak == 0 {
+                Text("Rien pour l’instant. Termine une tâche « À apprendre » ou indique ce que tu connais déjà dans les Réglages.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                GeometryReader { geo in
+                    HStack(spacing: 3) {
+                        if solid > 0 { Capsule().fill(Color.primary).frame(width: geo.size.width * CGFloat(solid) / CGFloat(total)) }
+                        if soon > 0 { Capsule().fill(Color.primary.opacity(0.45)).frame(width: geo.size.width * CGFloat(soon) / CGFloat(total)) }
+                        if weak > 0 { Capsule().strokeBorder(Color.primary, lineWidth: 1.5).frame(width: geo.size.width * CGFloat(weak) / CGFloat(total)) }
+                    }
+                }
+                .frame(height: 12)
+                row(.solid, solid, "Bien en mémoire, rien à faire")
+                row(.soon, soon, "À revoir dans les prochains jours")
+                row(.weak, weak, "À revoir en priorité")
+            }
+        }
+    }
+
+    private func row(_ s: Strength, _ n: Int, _ help: String) -> some View {
+        HStack(spacing: 12) {
+            StrengthDot(strength: s, size: 14)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(s.label).font(.subheadline.weight(.semibold))
+                Text(help).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text("\(n) page\(n > 1 ? "s" : "")").font(.subheadline.monospacedDigit())
+        }
+    }
+}
+
+// MARK: 4. Juz par juz
+
+private struct JuzList: View {
+    @Environment(QuranStore.self) private var store
+    @Environment(Tracker.self) private var tracker
+
+    var body: some View {
+        Card(title: "Juz par juz", subtitle: "Touche un juz pour voir ses pages et ses hizb.") {
+            VStack(spacing: 0) {
+                ForEach((1...30).reversed(), id: \.self) { j in
+                    let range = store.juzRange(j)
+                    let known = tracker.knownCount(in: range)
+                    NavigationLink { JuzDetail(juz: j) } label: {
+                        HStack(spacing: 12) {
+                            Text("\(j)")
+                                .font(.subheadline.weight(.bold).monospacedDigit())
+                                .frame(width: 30, height: 30)
+                                .background(Circle().fill(known == range.count ? Color.primary : Color.primary.opacity(0.06)))
+                                .foregroundStyle(known == range.count ? Color.onBrand : Color.primary)
+                            VStack(alignment: .leading, spacing: 5) {
+                                HStack {
+                                    Text(juzName(j)).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
+                                    Spacer()
+                                    Text("\(Int((Double(known) / Double(max(1, range.count)) * 100).rounded())) %")
+                                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                                }
+                                Bar(value: Double(known) / Double(max(1, range.count)), height: 5)
+                            }
+                            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 9)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    if j > 1 { Divider().padding(.leading, 42) }
+                }
+            }
+        }
+    }
+
+    private func juzName(_ j: Int) -> String {
+        switch j {
+        case 30: return "Juz Amma"
+        case 29: return "Juz Tabarak"
+        default: return "Juz \(j) · " + store.label(store.juzRange(j).lowerBound)
+        }
+    }
+}
+
+/// Un juz : ses 2 hizb, et toutes ses pages.
+struct JuzDetail: View {
+    let juz: Int
+    @Environment(QuranStore.self) private var store
+    @Environment(Tracker.self) private var tracker
+    @State private var selected: Int?
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                legend
+                ForEach([2 * juz - 1, 2 * juz], id: \.self) { h in
+                    let range = store.hizbRange(h)
+                    let first = store.page(range.lowerBound), last = store.page(range.upperBound - 1)
+                    let known = tracker.knownCount(in: range)
+                    Card(title: "Hizb \(h)", subtitle: "\(store.label(range.lowerBound)) · pages \(first)–\(last) · \(Int((Double(known) / Double(max(1, range.count)) * 100).rounded())) % su") {
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
+                            ForEach(first...last, id: \.self) { p in
+                                Button { selected = p } label: { PageTile(page: p) }
+                                    .buttonStyle(PressStyle())
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(20)
+        }
+        .background { AppBackground() }
+        .navigationTitle(juz == 30 ? "Juz Amma" : juz == 29 ? "Juz Tabarak" : "Juz \(juz)")
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(item: Binding(get: { selected.map(PageID.init) }, set: { selected = $0?.page })) { p in
             PageSheet(page: p.page)
         }
     }
 
     struct PageID: Identifiable { let page: Int; var id: Int { page } }
 
-    private func percent(_ v: Double) -> String {
-        v > 0 && v < 0.01 ? "< 1 %" : "\(Int((v * 100).rounded())) %"
-    }
-
-    private func line(_ v: String, _ l: String) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(v).font(.headline.monospacedDigit())
-            Text(l).font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    private func tile(_ symbol: String, _ color: Color, _ v: String, _ l: String) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Image(systemName: symbol).foregroundStyle(color)
-            Text(v).font(.title2.bold().monospacedDigit())
-            Text(l).font(.caption).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .glass(20)
-    }
-
-    // Les 30 derniers jours.
-    private var chart: some View {
-        let days = (0..<30).reversed().map { Day.add(-$0, to: Day.start(.now)) }
-        let points = days.flatMap { d -> [(Date, String, Int)] in
-            let a = tracker.activity[Day.key(d)] ?? DayActivity()
-            return [(d, "Appris (versets)", a.learned), (d, "Révisé (pages)", a.reviewed), (d, "Lu (versets)", a.read)]
-        }
-        return VStack(alignment: .leading, spacing: 10) {
-            Text("30 derniers jours").font(.headline)
-            Chart {
-                ForEach(Array(points.enumerated()), id: \.offset) { _, p in
-                    BarMark(x: .value("Jour", p.0, unit: .day), y: .value("Quantité", p.2))
-                        .foregroundStyle(by: .value("Type", p.1))
-                        .cornerRadius(3)
-                }
-            }
-            .chartForegroundStyleScale(["Appris (versets)": Color.brand, "Révisé (pages)": Color.gold, "Lu (versets)": Color(hex: 0x3F7FBF)])
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .day, count: 7)) { _ in
-                    AxisGridLine()
-                    AxisValueLabel(format: .dateTime.day().month(.abbreviated).locale(Dates.fr))
-                }
-            }
-            .chartLegend(position: .bottom)
-            .frame(height: 180)
-        }
-        .padding(16)
-        .glass(24)
-    }
-
     private var legend: some View {
-        HStack(spacing: 12) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 8, alignment: .leading)], alignment: .leading, spacing: 8) {
             ForEach([Strength.solid, .soon, .weak, .partial, .none], id: \.rawValue) { s in
-                HStack(spacing: 4) {
-                    RoundedRectangle(cornerRadius: 3).fill(s.color).frame(width: 11, height: 11)
-                    Text(s.label).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                HStack(spacing: 6) {
+                    StrengthDot(strength: s, size: 12)
+                    Text(s.label).font(.caption)
                 }
             }
         }
-        .minimumScaleFactor(0.8)
-    }
-
-    // 30 juz, chacun avec ses pages en petits carrés.
-    private var pageMap: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ForEach(1...30, id: \.self) { j in
-                let first = store.page(store.juzRange(j).lowerBound)
-                let last = store.page(store.juzRange(j).upperBound - 1)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Juz \(j)").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 11), spacing: 4) {
-                        ForEach(first...last, id: \.self) { p in
-                            Button { selectedPage = p } label: {
-                                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                    .fill(tracker.strength(p, store).color)
-                                    .aspectRatio(0.72, contentMode: .fit)
-                                    .overlay {
-                                        Text("\(p)").font(.system(size: 7, weight: .semibold)).foregroundStyle(.primary.opacity(0.45))
-                                    }
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Page \(p), \(tracker.strength(p, store).label)")
-                        }
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .glass(24)
-    }
-
-    private var surahList: some View {
-        LazyVStack(spacing: 0) {
-            ForEach(store.surahs) { s in
-                let known = tracker.knownCount(in: store.surahRange(s.n))
-                NavigationLink { SurahDetail(surah: s) } label: {
-                    HStack(spacing: 12) {
-                        Text("\(s.n)").font(.caption.weight(.bold).monospacedDigit()).foregroundStyle(.secondary).frame(width: 28)
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack {
-                                Text(s.tr).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
-                                Spacer()
-                                Text("\(known)/\(s.ayat.count)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                            }
-                            ProgressView(value: Double(known), total: Double(s.ayat.count))
-                                .tint(known == s.ayat.count ? Color(hex: 0x2FA36B) : .brand)
-                        }
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.vertical, 6)
-        .glass(24)
+        .padding(14)
+        .glass(18)
     }
 }
 
-/// Une page de la carte : où elle en est, la réviser, la noter.
+/// Une page dans la grille : son numéro, en noir plein si elle est solide.
+struct PageTile: View {
+    let page: Int
+    @Environment(QuranStore.self) private var store
+    @Environment(Tracker.self) private var tracker
+
+    var body: some View {
+        let s = tracker.strength(page, store)
+        Text("\(page)")
+            .font(.subheadline.weight(.semibold).monospacedDigit())
+            .foregroundStyle(s == .solid || s == .soon ? Color.onBrand : (s == .none ? Color.secondary : Color.primary))
+            .frame(maxWidth: .infinity)
+            .frame(height: 46)
+            .background {
+                let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
+                switch s {
+                case .solid: shape.fill(Color.primary)
+                case .soon: shape.fill(Color.primary.opacity(0.45))
+                case .weak: shape.strokeBorder(Color.primary, lineWidth: 1.6)
+                case .partial: shape.strokeBorder(Color.primary.opacity(0.45), style: StrokeStyle(lineWidth: 1.4, dash: [3, 3]))
+                case .none: shape.fill(Color.primary.opacity(0.05))
+                }
+            }
+            .accessibilityLabel("Page \(page), \(s.label)")
+    }
+}
+
+/// Une page : où elle en est, la réviser, la noter.
 struct PageSheet: View {
     let page: Int
     @Environment(QuranStore.self) private var store
@@ -206,15 +382,15 @@ struct PageSheet: View {
             List {
                 Section {
                     HStack(spacing: 14) {
-                        Text("\(page)")
-                            .font(.title.bold().monospacedDigit())
-                            .foregroundStyle(.white)
-                            .frame(width: 64, height: 64)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(s.color.gradient))
+                        PageTile(page: page).frame(width: 64)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(store.surahs(onPage: page).map { store.name($0) }.joined(separator: ", ")).font(.headline)
-                            Text("Juz \(store.juz(range.lowerBound)) · \(range.count) versets").font(.subheadline).foregroundStyle(.secondary)
-                            Text(s.label).font(.subheadline.weight(.semibold)).foregroundStyle(s == .none ? Color.secondary : s.color)
+                            Text("Juz \(store.juz(range.lowerBound)) · hizb \(store.hizb(range.lowerBound)) · \(range.count) versets")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                            HStack(spacing: 6) {
+                                StrengthDot(strength: s)
+                                Text(s.label).font(.subheadline.weight(.semibold))
+                            }
                         }
                     }
                     if let m = tracker.memory[page], s != .partial {
@@ -236,7 +412,7 @@ struct PageSheet: View {
                                 tracker.grade(page, g)
                                 dismiss()
                             } label: {
-                                Label(g.label, systemImage: g.symbol).foregroundStyle(g.color)
+                                Label(g.label, systemImage: g.symbol)
                             }
                         }
                     }
@@ -258,7 +434,8 @@ struct PageSheet: View {
     }
 }
 
-/// Les étapes fêtées.
+// MARK: 5. Les étapes
+
 struct Badges: View {
     @Environment(QuranStore.self) private var store
     @Environment(Tracker.self) private var tracker
@@ -272,6 +449,7 @@ struct Badges: View {
 
     var body: some View {
         let pages = tracker.learnedPages(store)
+        let hizb = tracker.completeHizb(store)
         let juz = tracker.completeJuz(store)
         let best = max(tracker.bestStreak, tracker.streak)
         let finished = tracker.plans.contains { $0.position >= $0.total || $0.cycles > 0 }
@@ -279,38 +457,35 @@ struct Badges: View {
         let list = [
             Badge(id: "p1", symbol: "leaf.fill", title: "Première page", won: pages >= 1),
             Badge(id: "s7", symbol: "flame.fill", title: "7 jours d’affilée", won: best >= 7),
-            Badge(id: "p10", symbol: "book.closed.fill", title: "10 pages", won: pages >= 10),
+            Badge(id: "h1", symbol: "seal.fill", title: "Un hizb complet", won: hizb >= 1),
             Badge(id: "j1", symbol: "seal.fill", title: "Un juz complet", won: juz >= 1),
             Badge(id: "goal", symbol: "target", title: "Objectif atteint", won: finished),
             Badge(id: "s30", symbol: "flame.circle.fill", title: "30 jours d’affilée", won: best >= 30),
-            Badge(id: "p50", symbol: "books.vertical.fill", title: "50 pages", won: pages >= 50),
             Badge(id: "j5", symbol: "star.fill", title: "5 juz", won: juz >= 5),
             Badge(id: "khatm", symbol: "moon.stars.fill", title: "Coran lu en entier", won: khatm),
             Badge(id: "p100", symbol: "rosette", title: "100 pages", won: pages >= 100),
             Badge(id: "s100", symbol: "bolt.heart.fill", title: "100 jours d’affilée", won: best >= 100),
-            Badge(id: "half", symbol: "circle.lefthalf.filled", title: "La moitié du Coran", won: pages >= 302),
+            Badge(id: "half", symbol: "circle.lefthalf.filled", title: "La moitié du Coran", won: hizb >= 30),
             Badge(id: "all", symbol: "crown.fill", title: "Tout le Coran", won: pages >= 604)
         ]
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Étapes").font(.title3.bold())
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+        let won = list.filter(\.won).count
+        Card(title: "Étapes", subtitle: "\(won) sur \(list.count) atteintes") {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3), spacing: 10) {
                 ForEach(list) { b in
                     VStack(spacing: 8) {
                         Image(systemName: b.symbol)
-                            .font(.title2)
-                            .foregroundStyle(b.won ? Color.white : Color.secondary)
-                            .frame(width: 56, height: 56)
-                            .background(Circle().fill(b.won ? AnyShapeStyle(LinearGradient(colors: [.gold, .brand], startPoint: .topLeading, endPoint: .bottomTrailing)) : AnyShapeStyle(Color.primary.opacity(0.07))))
+                            .font(.title3)
+                            .foregroundStyle(b.won ? Color.onBrand : Color.secondary)
+                            .frame(width: 50, height: 50)
+                            .background(Circle().fill(b.won ? Color.primary : Color.primary.opacity(0.06)))
                         Text(b.title)
                             .font(.caption.weight(.semibold))
                             .multilineTextAlignment(.center)
-                            .foregroundStyle(b.won ? .primary : .secondary)
+                            .foregroundStyle(b.won ? Color.primary : Color.secondary)
                             .lineLimit(2, reservesSpace: true)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .glass(20)
-                    .opacity(b.won ? 1 : 0.6)
+                    .opacity(b.won ? 1 : 0.55)
                 }
             }
         }

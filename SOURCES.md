@@ -24,3 +24,6 @@ Numéros de page (Mushaf de Médine, 604 pages) et de juz de chaque verset, d'ap
 
 ## Récitations
 Les récitations sont lues en ligne depuis everyayah.com (rien n'est intégré à l'app).
+
+## Hizb, nisf et rub‘
+Les 240 quarts de hizb (rub‘) viennent des données de Tanzil (via fawazahmed0/quran-api), recalés sur les débuts de juz du Mushaf de Médine (KFGQPC). Ils sont dans `mushaf.json`.

@@ -8,7 +8,8 @@ struct SettingsView: View {
     @Environment(Tracker.self) private var tracker
     @Environment(\.dismiss) private var dismiss
     @AppStorage("reciter") private var reciterID = Reciter.all[0].id
-    @AppStorage("tajweed") private var tajweed = true
+    @AppStorage("tajweed") private var tajweed = false
+    @AppStorage("theme") private var theme = 0
     @AppStorage("quranSize") private var size = 30.0
     @AppStorage("oldPerDay") private var oldPerDay = 2
     @AppStorage("reminder") private var reminder = false
@@ -27,12 +28,21 @@ struct SettingsView: View {
                             .environment(\.locale, Dates.fr)
                     }
                     if denied {
-                        Text("Les notifications sont bloquées. Autorise-les dans Réglages › Wird.").font(.caption).foregroundStyle(.red)
+                        Text("Les notifications sont bloquées. Autorise-les dans Réglages › Wird.").font(.caption).foregroundStyle(.secondary)
                     }
                 } header: {
                     Text("Rappel")
                 } footer: {
                     Text("Une notification chaque jour, par exemple après la prière du Fajr.")
+                }
+
+                Section("Apparence") {
+                    Picker("Thème", selection: $theme) {
+                        Text("Auto").tag(0)
+                        Text("Clair").tag(1)
+                        Text("Sombre").tag(2)
+                    }
+                    .pickerStyle(.segmented)
                 }
 
                 Section("Récitation") {

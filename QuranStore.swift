@@ -26,6 +26,8 @@ struct Surah: Decodable, Identifiable {
 struct MushafFile: Decodable {
     let page: [Int]
     let juz: [Int]
+    /// Quart de hizb (rub‘) de chaque verset : 1…240.
+    let rub: [Int]
 }
 
 struct QuranFile: Decodable {
@@ -55,6 +57,8 @@ final class QuranStore {
     static let ayahCount = 6236
     private(set) var pageOf: [Int] = []
     private(set) var juzOf: [Int] = []
+    private(set) var rubOf: [Int] = []
+    private(set) var rubStart: [Int] = []
     private(set) var surahStart: [Int] = []
     private(set) var pageStart: [Int] = []
     private(set) var juzStart: [Int] = []
@@ -96,7 +100,7 @@ final class QuranStore {
                 error = "Le texte du Coran est incomplet (\(file.surahs.count) sourates, \(count) versets)."
                 return
             }
-            guard mushaf.page.count == count, mushaf.juz.count == count else {
+            guard mushaf.page.count == count, mushaf.juz.count == count, mushaf.rub.count == count else {
                 error = "Les pages du Mushaf ne correspondent pas au texte."
                 return
             }
@@ -123,6 +127,11 @@ final class QuranStore {
         surahStart = start
         pageOf = mushaf.page
         juzOf = mushaf.juz
+        rubOf = mushaf.rub
+        var rs = Array(repeating: Self.ayahCount, count: 242)
+        for i in stride(from: Self.ayahCount - 1, through: 0, by: -1) { rs[mushaf.rub[i]] = i }
+        rs[0] = 0
+        rubStart = rs
         // pageStart[p] = premier verset de la page p ; pageStart[605] = 6236 (fin).
         var ps = Array(repeating: Self.ayahCount, count: 606)
         var js = Array(repeating: Self.ayahCount, count: 32)
@@ -158,6 +167,34 @@ final class QuranStore {
     }
 
     func page(_ g: Int) -> Int { pageOf.indices.contains(g) ? pageOf[g] : 1 }
+    func rub(_ g: Int) -> Int { rubOf.indices.contains(g) ? rubOf[g] : 1 }
+    func hizb(_ g: Int) -> Int { (rub(g) + 3) / 4 }
+
+    /// Le bloc (page, rub‘, nisf, hizb, juz) d'un verset, pour compter dans l'unité choisie.
+    func block(_ g: Int, _ unit: PlanUnit) -> Int {
+        switch unit {
+        case .ayahs: return g
+        case .pages: return page(g)
+        case .rub: return rub(g)
+        case .nisf: return (rub(g) + 1) / 2
+        case .hizb: return hizb(g)
+        case .juz: return juz(g)
+        }
+    }
+
+    /// Hizb h (1…60) : ses versets.
+    func hizbRange(_ h: Int) -> Range<Int> { rubStart[4 * h - 3]..<rubStart[min(241, 4 * h + 1)] }
+
+    /// Combien de blocs différents dans une liste de versets.
+    func count(_ list: [Int], in unit: PlanUnit) -> Int {
+        guard unit != .ayahs else { return list.count }
+        var n = 0, last = -1
+        for g in list {
+            let b = block(g, unit)
+            if b != last { n += 1; last = b }
+        }
+        return n
+    }
     func juz(_ g: Int) -> Int { juzOf.indices.contains(g) ? juzOf[g] : 1 }
 
     func surahRange(_ n: Int) -> Range<Int> {
