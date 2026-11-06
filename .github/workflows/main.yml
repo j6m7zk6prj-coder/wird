@@ -1,0 +1,93 @@
+name: Construire Wird
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ranger les fichiers
+        run: |
+          mkdir -p Wird/Assets.xcassets/AppIcon.appiconset
+          for f in *.swift *.json *.ttf; do [ -e "$f" ] && mv "$f" Wird/; done
+          rm -f Contents.json "Contents (1).json"
+          echo '{ "info" : { "author" : "xcode", "version" : 1 } }' > Wird/Assets.xcassets/Contents.json
+          icon_set () {
+            mkdir -p "Wird/Assets.xcassets/$2.appiconset" "Wird/Assets.xcassets/Preview-$3.imageset"
+            cp "$1" "Wird/Assets.xcassets/$2.appiconset/icon.png"
+            cp "$1" "Wird/Assets.xcassets/Preview-$3.imageset/icon.png"
+            echo '{ "images" : [ { "filename" : "icon.png", "idiom" : "universal", "platform" : "ios", "size" : "1024x1024" } ], "info" : { "author" : "xcode", "version" : 1 } }' > "Wird/Assets.xcassets/$2.appiconset/Contents.json"
+            echo '{ "images" : [ { "filename" : "icon.png", "idiom" : "universal" } ], "info" : { "author" : "xcode", "version" : 1 } }' > "Wird/Assets.xcassets/Preview-$3.imageset/Contents.json"
+          }
+          if [ -f icon.png ]; then icon_set icon.png AppIcon Wird; fi
+          ALT=""
+          for f in icon-*.png; do
+            [ -e "$f" ] || continue
+            n="${f#icon-}"; n="${n%.png}"; n="$(echo "$n" | tr -cd 'A-Za-z0-9_-')"
+            [ -n "$n" ] || continue
+            icon_set "$f" "AppIcon-$n" "$n"
+            ALT="$ALT AppIcon-$n"
+          done
+          echo "ALT_ICONS=${ALT# }" >> "$GITHUB_ENV"
+          test -f Wird/quran.json
+          test -f Wird/mushaf.json
+          test -f Wird/AmiriQuran.ttf
+          find Wird -type f | sort
+
+      - name: Choisir Xcode
+        run: |
+          XC=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -1)
+          if [ -z "$XC" ]; then XC=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1); fi
+          sudo xcode-select -s "$XC"
+          xcodebuild -version
+
+      - name: Installer XcodeGen
+        run: brew install xcodegen
+
+      - name: Générer le projet Xcode
+        run: xcodegen generate
+
+      - name: Compiler
+        run: |
+          set -o pipefail
+          xcodebuild -project Wird.xcodeproj -target Wird -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES="$ALT_ICONS" \
+            ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS=YES \
+            build > build.log 2>&1 || true
+          if grep -q "BUILD SUCCEEDED" build.log && test -f build/Release-iphoneos/Wird.app/Wird; then
+            echo "BUILD SUCCEEDED"
+          else
+            echo "===== ERREURS ====="
+            grep -n -i -E "error|undefined symbol|ld: " build.log | grep -v -i "warning" | head -40 || true
+            echo "===== FIN DU JOURNAL ====="
+            tail -40 build.log
+            exit 1
+          fi
+
+      - name: Emballer le .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/Wird.app Payload/
+          zip -qry Wird.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Wird-ipa
+          path: Wird.ipa
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: journal-compilation
+          path: build.log
+          if-no-files-found: ignore
