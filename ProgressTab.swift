@@ -251,42 +251,61 @@ private struct JuzList: View {
         Card(title: "Juz par juz", subtitle: "Touche un juz pour voir ses pages et ses hizb.") {
             VStack(spacing: 0) {
                 ForEach((1...30).reversed(), id: \.self) { j in
-                    let range = store.juzRange(j)
-                    let known = tracker.knownCount(in: range)
-                    NavigationLink { JuzDetail(juz: j) } label: {
-                        HStack(spacing: 12) {
-                            Text("\(j)")
-                                .font(.subheadline.weight(.bold).monospacedDigit())
-                                .frame(width: 30, height: 30)
-                                .background(Circle().fill(known == range.count ? Color.primary : Color.primary.opacity(0.06)))
-                                .foregroundStyle(known == range.count ? Color.onBrand : Color.primary)
-                            VStack(alignment: .leading, spacing: 5) {
-                                HStack {
-                                    Text(juzName(j)).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
-                                    Spacer()
-                                    Text("\(Int((Double(known) / Double(max(1, range.count)) * 100).rounded())) %")
-                                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                                }
-                                Bar(value: Double(known) / Double(max(1, range.count)), height: 5)
-                            }
-                            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
-                        }
-                        .padding(.vertical, 9)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                    JuzRow(juz: j)
                     if j > 1 { Divider().padding(.leading, 42) }
                 }
             }
         }
     }
+}
 
-    private func juzName(_ j: Int) -> String {
-        switch j {
+private struct JuzRow: View {
+    let juz: Int
+    @Environment(QuranStore.self) private var store
+    @Environment(Tracker.self) private var tracker
+
+    private var share: Double {
+        let range = store.juzRange(juz)
+        return Double(tracker.knownCount(in: range)) / Double(max(1, range.count))
+    }
+
+    private var name: String {
+        switch juz {
         case 30: return "Juz Amma"
         case 29: return "Juz Tabarak"
-        default: return "Juz \(j) · " + store.label(store.juzRange(j).lowerBound)
+        default: return "Juz \(juz) · " + store.label(store.juzRange(juz).lowerBound)
         }
+    }
+
+    var body: some View {
+        let value = share
+        let complete = value >= 1
+        NavigationLink { JuzDetail(juz: juz) } label: {
+            HStack(spacing: 12) {
+                Text("\(juz)")
+                    .font(.subheadline.weight(.bold).monospacedDigit())
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(complete ? Color.primary : Color.primary.opacity(0.06)))
+                    .foregroundStyle(complete ? Color.onBrand : Color.primary)
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text(name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary).lineLimit(1)
+                        Spacer()
+                        Text(percentText(value)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    Bar(value: value, height: 5)
+                }
+                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 9)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func percentText(_ v: Double) -> String {
+        let n = Int((v * 100).rounded())
+        return "\(n) %"
     }
 }
 
@@ -301,28 +320,29 @@ struct JuzDetail: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 legend
-                ForEach([2 * juz - 1, 2 * juz], id: \.self) { h in
-                    let range = store.hizbRange(h)
-                    let first = store.page(range.lowerBound), last = store.page(range.upperBound - 1)
-                    let known = tracker.knownCount(in: range)
-                    Card(title: "Hizb \(h)", subtitle: "\(store.label(range.lowerBound)) · pages \(first)–\(last) · \(Int((Double(known) / Double(max(1, range.count)) * 100).rounded())) % su") {
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
-                            ForEach(first...last, id: \.self) { p in
-                                Button { selected = p } label: { PageTile(page: p) }
-                                    .buttonStyle(PressStyle())
-                            }
-                        }
-                    }
-                }
+                HizbSection(hizb: 2 * juz - 1, selected: $selected)
+                HizbSection(hizb: 2 * juz, selected: $selected)
             }
             .padding(20)
         }
         .background { AppBackground() }
-        .navigationTitle(juz == 30 ? "Juz Amma" : juz == 29 ? "Juz Tabarak" : "Juz \(juz)")
+        .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: Binding(get: { selected.map(PageID.init) }, set: { selected = $0?.page })) { p in
+        .sheet(item: sheetItem) { p in
             PageSheet(page: p.page)
         }
+    }
+
+    private var title: String {
+        switch juz {
+        case 30: return "Juz Amma"
+        case 29: return "Juz Tabarak"
+        default: return "Juz \(juz)"
+        }
+    }
+
+    private var sheetItem: Binding<PageID?> {
+        Binding(get: { selected.map { PageID(page: $0) } }, set: { selected = $0?.page })
     }
 
     struct PageID: Identifiable { let page: Int; var id: Int { page } }
@@ -338,6 +358,36 @@ struct JuzDetail: View {
         }
         .padding(14)
         .glass(18)
+    }
+}
+
+/// Un hizb : ses pages en petites cases.
+private struct HizbSection: View {
+    let hizb: Int
+    @Binding var selected: Int?
+    @Environment(QuranStore.self) private var store
+    @Environment(Tracker.self) private var tracker
+
+    private var range: Range<Int> { store.hizbRange(hizb) }
+    private var firstPage: Int { store.page(range.lowerBound) }
+    private var lastPage: Int { store.page(range.upperBound - 1) }
+
+    private var subtitle: String {
+        let known = tracker.knownCount(in: range)
+        let share = Double(known) / Double(max(1, range.count))
+        let percent = Int((share * 100).rounded())
+        return store.label(range.lowerBound) + " · pages \(firstPage)–\(lastPage) · \(percent) % su"
+    }
+
+    var body: some View {
+        Card(title: "Hizb \(hizb)", subtitle: subtitle) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
+                ForEach(firstPage...lastPage, id: \.self) { p in
+                    Button { selected = p } label: { PageTile(page: p) }
+                        .buttonStyle(PressStyle())
+                }
+            }
+        }
     }
 }
 

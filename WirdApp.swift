@@ -191,7 +191,7 @@ struct SurahDetail: View {
                 HStack(spacing: 0) {
                     stat("\(surah.ayat.count)", "versets")
                     stat(pages.count == 1 ? "p. \(pages[0])" : "p. \(pages.first ?? 1)–\(pages.last ?? 1)", "\(pages.count) page\(pages.count > 1 ? "s" : "")")
-                    stat("\(Int((Double(known) / Double(max(1, surah.ayat.count)) * 100).rounded())) %", "apprise")
+                    stat(percent(known, surah.ayat.count), "apprise")
                 }
                 .padding(.vertical, 14)
                 .glass(22)
@@ -231,6 +231,11 @@ struct SurahDetail: View {
             MushafReader(start: pos).environment(store)
         }
         .sheet(isPresented: $newPlan) { PlanEditor(surah: surah.n) }
+    }
+
+    private func percent(_ a: Int, _ b: Int) -> String {
+        let share = Double(a) / Double(max(1, b))
+        return "\(Int((share * 100).rounded())) %"
     }
 
     private func stat(_ v: String, _ l: String) -> some View {
