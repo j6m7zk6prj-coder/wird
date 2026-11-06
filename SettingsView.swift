@@ -7,10 +7,7 @@ struct SettingsView: View {
     @Environment(QuranStore.self) private var store
     @Environment(Tracker.self) private var tracker
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("reciter") private var reciterID = Reciter.all[0].id
-    @AppStorage("tajweed") private var tajweed = false
     @AppStorage("theme") private var theme = 0
-    @AppStorage("quranSize") private var size = 30.0
     @AppStorage("oldPerDay") private var oldPerDay = 2
     @AppStorage("reminder") private var reminder = false
     @AppStorage("reminderMinutes") private var reminderMinutes = 7 * 60
@@ -43,27 +40,6 @@ struct SettingsView: View {
                         Text("Sombre").tag(2)
                     }
                     .pickerStyle(.segmented)
-                }
-
-                Section("Récitation") {
-                    Picker("Récitateur", selection: $reciterID) {
-                        ForEach(Reciter.all) { r in
-                            VStack(alignment: .leading) {
-                                Text(r.name)
-                                Text(r.note).font(.caption).foregroundStyle(.secondary)
-                            }
-                            .tag(r.id)
-                        }
-                    }
-                    .pickerStyle(.navigationLink)
-                }
-
-                Section("Texte") {
-                    Toggle("Couleurs du tajwid", isOn: $tajweed)
-                    VStack(alignment: .leading) {
-                        Text("Taille du texte arabe")
-                        Slider(value: $size, in: 20...48, step: 1)
-                    }
                 }
 
                 Section {
@@ -134,28 +110,33 @@ struct KnownPicker: View {
     @Environment(QuranStore.self) private var store
     @Environment(Tracker.self) private var tracker
     @Environment(\.dismiss) private var dismiss
-    @State private var byJuz = false
+    @State private var mode = 0
 
     var body: some View {
         List {
             Section {
-                Picker("Par", selection: $byJuz) {
-                    Text("Sourates").tag(false)
-                    Text("Juz").tag(true)
+                Picker("Par", selection: $mode) {
+                    Text("Sourates").tag(0)
+                    Text("Juz").tag(1)
+                    Text("Hizb").tag(2)
                 }
                 .pickerStyle(.segmented)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             } footer: {
-                Text("Coche ce que tu sais déjà par cœur : ces pages entrent dans tes révisions. Pour une partie de sourate, utilise la carte dans Progrès.")
+                Text("Coche ce que tu sais déjà par cœur : ces pages entrent dans tes révisions. Pour une page précise, va dans Progrès › Juz par juz.")
             }
-            if byJuz {
-                ForEach(1...30, id: \.self) { j in
-                    row("Juz \(j)", detail: "Commence par \(store.label(store.juzRange(j).lowerBound))", range: store.juzRange(j))
+            if mode == 1 {
+                ForEach((1...30).reversed(), id: \.self) { j in
+                    row("Juz \(j)", detail: "Commence à \(store.label(store.juzRange(j).lowerBound))", range: store.juzRange(j))
+                }
+            } else if mode == 2 {
+                ForEach((1...60).reversed(), id: \.self) { h in
+                    row("Hizb \(h)", detail: "Commence à \(store.label(store.hizbRange(h).lowerBound))", range: store.hizbRange(h))
                 }
             } else {
                 ForEach(store.surahs.reversed()) { s in
-                    row("\(s.n). \(s.tr)", detail: "\(s.ayat.count) versets", range: store.surahRange(s.n))
+                    row("\(s.n). \(s.tr)", detail: "\(French.surahName(s.n)) · \(s.count) versets", range: store.surahRange(s.n))
                 }
             }
         }

@@ -1,55 +1,30 @@
 import SwiftUI
-import CoreText
 
-// MARK: - Le texte du Coran (fichier quran.json, intégré à l'app)
+// MARK: - Les repères du Coran (aucun texte : tu lis dans ton Mushaf en papier)
 
-/// Un verset : le texte exact de Tanzil et ses annotations de tajwid (début, fin, règle).
-struct Ayah: Decodable {
-    let t: String
-    let j: [[Int]]
-}
-
+/// Une sourate : son nom et son nombre de versets.
 struct Surah: Decodable, Identifiable {
     let n: Int
     let ar: String
     let tr: String
-    let type: String
-    /// La sourate commence par la basmala (affichée en tête, comme dans le Mushaf).
-    let basmala: Bool
-    let ayat: [Ayah]
-
+    let count: Int
     var id: Int { n }
-    var isMeccan: Bool { type == "meccan" }
 }
 
-/// Pages (1…604) et juz (1…30) du Mushaf de Médine, pour chaque verset.
-struct MushafFile: Decodable {
+/// Le fichier quran.json : les sourates, et pour chaque verset sa page, son juz et son quart de hizb.
+struct QuranFile: Decodable {
+    let source: String
+    let surahs: [Surah]
     let page: [Int]
     let juz: [Int]
     /// Quart de hizb (rub‘) de chaque verset : 1…240.
     let rub: [Int]
 }
 
-struct QuranFile: Decodable {
-    let source: String
-    let tajweed: String
-    let rules: [String]
-    let surahs: [Surah]
-}
-
-/// Où tu en es : la sourate et le premier verset de la page lue.
-struct ReadingPosition: Codable, Equatable {
-    var surah: Int
-    var ayah: Int
-}
-
 @MainActor
 @Observable
 final class QuranStore {
     private(set) var surahs: [Surah] = []
-    private(set) var rules: [String] = []
-    private(set) var sourceNotice = ""
-    private(set) var tajweedNotice = ""
     private(set) var loaded = false
     private(set) var error: String?
 
@@ -63,56 +38,29 @@ final class QuranStore {
     private(set) var pageStart: [Int] = []
     private(set) var juzStart: [Int] = []
 
-    /// Dernière page lue (reprise de la lecture).
-    var last: ReadingPosition? {
-        didSet {
-            if let last, let data = try? JSONEncoder().encode(last) {
-                UserDefaults.standard.set(data, forKey: "lastPosition")
-            }
-        }
-    }
-
-    init() {
-        if let data = UserDefaults.standard.data(forKey: "lastPosition") {
-            last = try? JSONDecoder().decode(ReadingPosition.self, from: data)
-        }
-    }
 
     func load() async {
         guard !loaded else { return }
-        Fonts.register()
         guard let url = Bundle.main.url(forResource: "quran", withExtension: "json") else {
-            error = "Le fichier du Coran est introuvable dans l’app."
+            error = "Le fichier des repères du Coran est introuvable dans l’app."
             return
         }
         do {
-            guard let mushafURL = Bundle.main.url(forResource: "mushaf", withExtension: "json") else {
-                error = "Le fichier des pages du Mushaf est introuvable dans l’app."
-                return
-            }
-            let (file, mushaf) = try await Task.detached(priority: .userInitiated) {
-                (try JSONDecoder().decode(QuranFile.self, from: Data(contentsOf: url)),
-                 try JSONDecoder().decode(MushafFile.self, from: Data(contentsOf: mushafURL)))
+            let file = try await Task.detached(priority: .userInitiated) {
+                try JSONDecoder().decode(QuranFile.self, from: Data(contentsOf: url))
             }.value
-            // Vérification : 114 sourates et 6 236 versets, sinon on n'affiche rien.
-            let count = file.surahs.reduce(0) { $0 + $1.ayat.count }
-            guard file.surahs.count == 114, count == 6236 else {
-                error = "Le texte du Coran est incomplet (\(file.surahs.count) sourates, \(count) versets)."
+            // Vérification : 114 sourates et 6 236 versets.
+            let count = file.surahs.reduce(0) { $0 + $1.count }
+            guard file.surahs.count == 114, count == Self.ayahCount,
+                  file.page.count == count, file.juz.count == count, file.rub.count == count else {
+                error = "Les repères du Coran sont incomplets."
                 return
             }
-            guard mushaf.page.count == count, mushaf.juz.count == count, mushaf.rub.count == count else {
-                error = "Les pages du Mushaf ne correspondent pas au texte."
-                return
-            }
-            buildIndex(file.surahs, mushaf)
+            buildIndex(file)
             surahs = file.surahs
-            rules = file.rules
-            Mushaf.basmala = file.surahs[0].ayat[0].t
-            sourceNotice = file.source
-            tajweedNotice = file.tajweed
             loaded = true
         } catch {
-            self.error = "Impossible de lire le texte du Coran."
+            self.error = "Impossible de lire les repères du Coran. Renvoie bien le fichier quran.json de Wird 1.2."
         }
     }
 
@@ -120,10 +68,11 @@ final class QuranStore {
         surahs.indices.contains(n - 1) ? surahs[n - 1] : nil
     }
 
-    private func buildIndex(_ list: [Surah], _ mushaf: MushafFile) {
+    private func buildIndex(_ mushaf: QuranFile) {
+        let list = mushaf.surahs
         var start: [Int] = []
         var g = 0
-        for s in list { start.append(g); g += s.ayat.count }
+        for s in list { start.append(g); g += s.count }
         surahStart = start
         pageOf = mushaf.page
         juzOf = mushaf.juz
@@ -159,11 +108,6 @@ final class QuranStore {
             if surahStart[mid] <= g { lo = mid } else { hi = mid - 1 }
         }
         return (lo + 1, g - surahStart[lo] + 1)
-    }
-
-    func ayah(_ g: Int) -> Ayah? {
-        let r = ref(g)
-        return surah(r.surah)?.ayat[r.ayah - 1]
     }
 
     func page(_ g: Int) -> Int { pageOf.indices.contains(g) ? pageOf[g] : 1 }
@@ -225,7 +169,7 @@ final class QuranStore {
         let x = ref(a), y = ref(b)
         if a == b { return label(a) }
         if x.surah == y.surah {
-            if x.ayah == 1, y.ayah == surah(x.surah)?.ayat.count { return name(x.surah) + " (entière)" }
+            if x.ayah == 1, y.ayah == surah(x.surah)?.count { return name(x.surah) + " (entière)" }
             return "\(name(x.surah)) \(x.ayah) → \(y.ayah)"
         }
         return "\(name(x.surah)) \(x.ayah) → \(name(y.surah)) \(y.ayah)"
@@ -239,29 +183,3 @@ final class QuranStore {
     }
 }
 
-// MARK: - Police coranique (Amiri Quran, intégrée à l'app)
-
-enum Fonts {
-    static let quranName = "Amiri Quran"
-    nonisolated(unsafe) private static var done = false
-
-    static func register() {
-        guard !done else { return }
-        done = true
-        if let url = Bundle.main.url(forResource: "AmiriQuran", withExtension: "ttf") {
-            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
-        }
-    }
-
-    static func quran(_ size: CGFloat) -> UIFont {
-        UIFont(name: quranName, size: size) ?? UIFont(name: "AmiriQuran-Regular", size: size) ?? .systemFont(ofSize: size)
-    }
-}
-
-extension Int {
-    /// Chiffres arabes orientaux : 255 → ٢٥٥.
-    var arabicDigits: String {
-        let digits: [Character] = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"]
-        return String(String(self).compactMap { $0.wholeNumberValue.map { digits[$0] } })
-    }
-}

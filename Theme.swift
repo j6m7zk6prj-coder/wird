@@ -125,45 +125,6 @@ struct Banner: View {
     }
 }
 
-// MARK: - Texte coranique (police Amiri Quran, couleurs du tajwid)
-
-/// Affiche un texte mis en forme (UIKit) dans SwiftUI, à la bonne hauteur.
-struct QuranLabel: UIViewRepresentable {
-    let text: NSAttributedString
-
-    func makeUIView(context: Context) -> UILabel {
-        let l = UILabel()
-        l.numberOfLines = 0
-        l.lineBreakMode = .byWordWrapping
-        l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        l.setContentHuggingPriority(.required, for: .vertical)
-        return l
-    }
-
-    func updateUIView(_ l: UILabel, context: Context) {
-        l.attributedText = text
-    }
-
-    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize? {
-        let width = proposal.width ?? 320
-        return CGSize(width: width, height: Mushaf.height(text, width: width) + 4)
-    }
-}
-
-extension NSAttributedString {
-    /// Texte de droite à gauche, aligné à droite, avec un interligne aéré.
-    func rightToLeft(lineSpacing: CGFloat = 10) -> NSAttributedString {
-        let m = NSMutableAttributedString(attributedString: self)
-        let p = NSMutableParagraphStyle()
-        p.alignment = .right
-        p.baseWritingDirection = .rightToLeft
-        p.lineSpacing = lineSpacing
-        p.lineHeightMultiple = 1.1
-        m.addAttribute(.paragraphStyle, value: p, range: NSRange(location: 0, length: m.length))
-        return m
-    }
-}
-
 // MARK: - Dates
 
 enum Dates {

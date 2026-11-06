@@ -217,25 +217,21 @@ struct TaskCard: View {
                     }
                 }
                 HStack(spacing: 10) {
-                    NavigationLink {
-                        StudyView(ayat: ayat, title: plan.title, mode: .task(plan.id))
-                    } label: {
-                        Label(plan.kind == .read ? "Lire" : "Commencer", systemImage: plan.kind == .read ? "book.fill" : "play.fill")
+                    Button { tracker.complete(plan.id, store) } label: {
+                        Label(plan.kind.doneLabel, systemImage: "checkmark")
                     }
                     .buttonStyle(BigButtonStyle(color: plan.kind.color))
-                    Menu {
-                        Button(plan.kind.doneLabel, systemImage: "checkmark") { tracker.complete(plan.id, store) }
-                        if ayat.count > 1 {
-                            Button("J’en ai fait une partie", systemImage: "slider.horizontal.3") { partial = true }
+                    if ayat.count > 1 {
+                        Button { partial = true } label: {
+                            Image(systemName: "slider.horizontal.3")
+                                .font(.title3.weight(.semibold))
+                                .foregroundStyle(.primary)
+                                .frame(width: 52, height: 52)
+                                .glassCircle()
                         }
-                    } label: {
-                        Image(systemName: "checkmark")
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(plan.kind.color)
-                            .frame(width: 52, height: 52)
-                            .glassCircle()
+                        .buttonStyle(PressStyle())
+                        .accessibilityLabel("J’en ai fait une partie")
                     }
-                    .accessibilityLabel("Marquer comme fait")
                 }
             }
         }
@@ -305,15 +301,14 @@ struct PageRow: View {
     let page: Int
     @Environment(QuranStore.self) private var store
     @Environment(Tracker.self) private var tracker
+    @State private var details = false
 
     var body: some View {
         let s = tracker.strength(page, store)
         let done = tracker.reviewedToday(page)
         let range = store.pageRange(page)
         HStack(spacing: 12) {
-            NavigationLink {
-                StudyView(ayat: Array(range), title: "Page \(page)", mode: .review([page]))
-            } label: {
+            Button { details = true } label: {
                 HStack(spacing: 12) {
                     Text("\(page)")
                         .font(.headline.monospacedDigit())
@@ -326,7 +321,7 @@ struct PageRow: View {
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
-                        Text(done ? "Révisée aujourd’hui" : "\(s.label) · juz \(store.juz(range.lowerBound))")
+                        Text(done ? "Révisée aujourd’hui" : "\(s.label) · juz \(store.juz(range.lowerBound)) · hizb \(store.hizb(range.lowerBound))")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -353,5 +348,6 @@ struct PageRow: View {
         }
         .padding(12)
         .glass(22)
+        .sheet(isPresented: $details) { PageSheet(page: page) }
     }
 }

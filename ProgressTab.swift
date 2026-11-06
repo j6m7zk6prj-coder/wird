@@ -448,13 +448,6 @@ struct PageSheet: View {
                         LabeledContent("Révisée", value: "\(m.reviews) fois")
                     }
                 }
-                Section {
-                    NavigationLink {
-                        StudyView(ayat: Array(range), title: "Page \(page)", mode: tracker.memory[page] == nil ? .free : .review([page]))
-                    } label: {
-                        Label(tracker.memory[page] == nil ? "Ouvrir la page" : "Réviser maintenant", systemImage: "play.fill")
-                    }
-                }
                 if tracker.memory[page] != nil {
                     Section("Je viens de la réciter, c’était…") {
                         ForEach(Grade.allCases.reversed()) { g in

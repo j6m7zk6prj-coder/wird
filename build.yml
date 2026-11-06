@@ -40,8 +40,6 @@ jobs:
           echo "ALT_ICONS=${ALT# }" >> "$GITHUB_ENV"
           # Le texte du Coran, les pages et la police doivent être là.
           test -f Wird/quran.json
-          test -f Wird/mushaf.json
-          test -f Wird/AmiriQuran.ttf
           find Wird -type f | sort
 
       - name: Choisir Xcode
