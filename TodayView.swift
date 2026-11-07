@@ -85,7 +85,7 @@ struct DayCard: View {
                         .background {
                             if chunk.done {
                                 Capsule().fill(Star.fill)
-                                    .shadow(color: Color.starShadow, radius: 12, y: 5)
+                                    .shadow(color: Color.starGlow, radius: 12, y: 5)
                             } else {
                                 Capsule().strokeBorder(Color.star, lineWidth: 2)
                             }

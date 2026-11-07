@@ -217,13 +217,13 @@ struct Twinkles: View {
         let local = t - cycle * period
         guard local < duration else { return }
         var rng = SeededRandom(seed: UInt64(abs(Int(cycle)) % 100_000 + 1))
-        let start = CGPoint(x: size.width * (0.15 + rng.next() * 0.7), y: size.height * (0.05 + rng.next() * 0.35))
-        let angle = 0.45 + rng.next() * 0.35
+        let start = CGPoint(x: size.width * CGFloat(0.15 + rng.next() * 0.7), y: size.height * CGFloat(0.05 + rng.next() * 0.35))
+        let angle = CGFloat(0.45 + rng.next() * 0.35)
         let length = size.width * 0.55
-        let k = local / duration
+        let k = CGFloat(local / duration)
         let head = CGPoint(x: start.x + cos(angle) * length * k, y: start.y + sin(angle) * length * k)
         let tail = CGPoint(x: head.x - cos(angle) * size.width * 0.18, y: head.y - sin(angle) * size.width * 0.18)
-        let fade = sin(k * .pi)
+        let fade = Double(sin(k * .pi))
         var path = Path()
         path.move(to: tail)
         path.addLine(to: head)
