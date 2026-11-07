@@ -181,6 +181,11 @@ enum Dates {
         d.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).locale(fr))
     }
 
+    /// « 19:00 ».
+    static func hour(_ d: Date) -> String {
+        d.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits).locale(fr))
+    }
+
     /// « mars 2031 ».
     static func monthYear(_ d: Date) -> String {
         d.formatted(.dateTime.month(.wide).year().locale(fr))

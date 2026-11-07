@@ -49,7 +49,10 @@ struct Revision: Codable {
 struct Course: Codable {
     /// Jour du cours (1 = dimanche … 6 = vendredi, 7 = samedi).
     var weekday = 6
-    /// Tout ce qui est avant cette place a déjà été validé au cours.
+    /// Heure du cours (19 h 00 si rien n'est choisi).
+    var hour: Int?
+    var minute: Int?
+    // Anciennes données (Wird 2.4), gardées pour pouvoir relire le fichier.
     var lastPosition = 0
     var sessions: [CourseSession] = []
 }
@@ -298,15 +301,16 @@ final class Journal {
 
     // MARK: Cours
 
-    /// Active le cours : ce que tu apprends à partir de maintenant sera à réciter.
-    func startCourse(weekday: Int) {
-        course = Course(weekday: weekday, lastPosition: learning?.position ?? 0)
+    func startCourse(weekday: Int = 6, hour: Int = 19, minute: Int = 0) {
+        course = Course(weekday: weekday, hour: hour, minute: minute)
         save()
     }
 
-    func setCourseDay(_ weekday: Int) {
-        guard var c = course else { return startCourse(weekday: weekday) }
+    func setCourse(weekday: Int, hour: Int, minute: Int) {
+        var c = course ?? Course()
         c.weekday = weekday
+        c.hour = hour
+        c.minute = minute
         course = c
         save()
     }
@@ -316,79 +320,34 @@ final class Journal {
         save()
     }
 
-    /// Ce que tu as appris depuis le dernier cours validé (dans l'ordre d'apprentissage).
-    func courseAyat(_ q: QuranStore) -> [Int] {
-        guard let c = course, let l = learning else { return [] }
-        let seq = q.sequence(l.direction)
-        let end = min(l.position, seq.count)
-        let start = min(c.lastPosition, end)
-        return Array(seq[start..<end])
+    /// Le prochain cours (date et heure), à partir de maintenant.
+    func nextCourse(after now: Date = .now) -> Date? {
+        guard let c = course else { return nil }
+        let cal = Day.calendar
+        var comps = DateComponents()
+        comps.weekday = c.weekday
+        comps.hour = c.hour ?? 19
+        comps.minute = c.minute ?? 0
+        comps.second = 0
+        return cal.nextDate(after: now, matching: comps, matchingPolicy: .nextTime)
     }
 
-    /// Le prochain jour de cours (aujourd'hui compris).
-    func nextCourseDate() -> Date? {
-        guard let c = course else { return nil }
-        var d = Day.start(.now)
-        for _ in 0..<7 {
-            if Day.weekday(d) == c.weekday { return d }
+    /// Le cours d'avant (une semaine plus tôt).
+    func previousCourse(_ now: Date = .now) -> Date? {
+        nextCourse(after: now).map { Day.add(-7, to: $0) }
+    }
+
+    /// Ce que tu as appris depuis le dernier cours (à réciter au prochain).
+    func learnedSinceCourse(_ q: QuranStore, now: Date = .now) -> [Int] {
+        guard let l = learning, let prev = previousCourse(now) else { return [] }
+        var count = 0
+        var d = Day.add(1, to: Day.start(prev))
+        while d <= Day.start(now) {
+            count += l.log[Day.key(d)] ?? 0
             d = Day.add(1, to: d)
         }
-        return nil
-    }
-
-    /// Le cours de ce jour : validé (tout est retenu) ou à revoir.
-    func recordCourse(validated: Bool, note: String, _ q: QuranStore) {
-        guard var c = course, let l = learning else { return }
-        let ayat = courseAyat(q)
-        let session = CourseSession(date: .now, from: ayat.first, to: ayat.last, count: ayat.count,
-                                    validated: validated, note: note.trimmingCharacters(in: .whitespacesAndNewlines),
-                                    previous: c.lastPosition)
-        c.sessions.insert(session, at: 0)
-        if validated { c.lastPosition = l.position }
-        course = c
-        message = validated ? "Cours validé, machAllah !" : "Noté : à revoir pour le prochain cours"
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        save()
-    }
-
-    func deleteSession(_ id: UUID) {
-        guard var c = course, let i = c.sessions.firstIndex(where: { $0.id == id }) else { return }
-        let s = c.sessions.remove(at: i)
-        // Si on annule le dernier cours validé, ce qu'il contenait redevient à réciter.
-        if s.validated, i == 0, let previous = s.previous {
-            c.lastPosition = previous
-        }
-        course = c
-        save()
-    }
-
-    func courseDoneToday() -> CourseSession? {
-        guard let s = course?.sessions.first, Day.key(s.date) == today else { return nil }
-        return s
-    }
-}
-
-// MARK: - Couleurs : noir et blanc
-
-extension Color {
-    /// Noir en thème clair, blanc en thème sombre.
-    static let brand = Color.primary
-    /// Le texte posé sur un fond `brand`.
-    static let onBrand = Color(uiColor: .systemBackground)
-}
-
-// MARK: - Nombres
-
-enum Num {
-    /// « 1,5 » ou « 3 ».
-    static func pages(_ v: Double) -> String {
-        let r = (v * 2).rounded() / 2
-        if r == 0 && v > 0 { return String(format: "%.1f", v).replacingOccurrences(of: ".", with: ",") }
-        return r == r.rounded() ? "\(Int(r))" : String(format: "%.1f", r).replacingOccurrences(of: ".", with: ",")
-    }
-
-    static func pagesLabel(_ v: Double) -> String {
-        let t = pages(v)
-        return t + (v > 1.25 ? " pages" : " page")
+        let seq = q.sequence(l.direction)
+        let end = min(l.position, seq.count)
+        return Array(seq[max(0, end - count)..<end])
     }
 }
