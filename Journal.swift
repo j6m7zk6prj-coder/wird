@@ -351,3 +351,28 @@ final class Journal {
         return Array(seq[max(0, end - count)..<end])
     }
 }
+
+// MARK: - Couleurs : noir et blanc
+
+extension Color {
+    /// Noir en thème clair, blanc en thème sombre.
+    static let brand = Color.primary
+    /// Le texte posé sur un fond `brand`.
+    static let onBrand = Color(uiColor: .systemBackground)
+}
+
+// MARK: - Nombres
+
+enum Num {
+    /// « 1,5 » ou « 3 ».
+    static func pages(_ v: Double) -> String {
+        let r = (v * 2).rounded() / 2
+        if r == 0 && v > 0 { return String(format: "%.1f", v).replacingOccurrences(of: ".", with: ",") }
+        return r == r.rounded() ? "\(Int(r))" : String(format: "%.1f", r).replacingOccurrences(of: ".", with: ",")
+    }
+
+    static func pagesLabel(_ v: Double) -> String {
+        let t = pages(v)
+        return t + (v > 1.25 ? " pages" : " page")
+    }
+}
