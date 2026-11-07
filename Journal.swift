@@ -45,6 +45,27 @@ struct Revision: Codable {
     var log: [String: Int] = [:]
 }
 
+/// Ton cours (par exemple le vendredi), où tu récites ce que tu as appris.
+struct Course: Codable {
+    /// Jour du cours (1 = dimanche … 6 = vendredi, 7 = samedi).
+    var weekday = 6
+    /// Tout ce qui est avant cette place a déjà été validé au cours.
+    var lastPosition = 0
+    var sessions: [CourseSession] = []
+}
+
+struct CourseSession: Codable, Identifiable {
+    var id = UUID()
+    var date: Date
+    var from: Int?
+    var to: Int?
+    var count: Int
+    var validated: Bool
+    var note: String
+    /// Où en était le cours avant (pour pouvoir annuler).
+    var previous: Int?
+}
+
 /// Ce qu'il y a à faire aujourd'hui.
 struct DayChunk {
     let seq: [Int]
@@ -69,6 +90,10 @@ enum Day {
     }
 
     static func start(_ date: Date) -> Date { calendar.startOfDay(for: date) }
+    static func weekday(_ date: Date) -> Int { calendar.component(.weekday, from: date) }
+    /// Les jours de la semaine (numéro du calendrier, nom), du lundi au dimanche.
+    static let names: [(Int, String)] = [(2, "Lundi"), (3, "Mardi"), (4, "Mercredi"), (5, "Jeudi"), (6, "Vendredi"), (7, "Samedi"), (1, "Dimanche")]
+    static func name(_ weekday: Int) -> String { names.first { $0.0 == weekday }?.1 ?? "" }
     static func add(_ days: Int, to date: Date) -> Date { calendar.date(byAdding: .day, value: days, to: date) ?? date }
 }
 
@@ -79,9 +104,12 @@ final class Journal {
     private(set) var revision: Revision?
     var message: String?
 
+    private(set) var course: Course?
+
     private struct SaveFile: Codable {
         var learning: Learning?
         var revision: Revision?
+        var course: Course?
     }
 
     private static let fileURL: URL = {
@@ -95,11 +123,12 @@ final class Journal {
         if let data = try? Data(contentsOf: Self.fileURL), let f = try? JSONDecoder().decode(SaveFile.self, from: data) {
             learning = f.learning
             revision = f.revision
+            course = f.course
         }
     }
 
     private func save() {
-        if let data = try? JSONEncoder().encode(SaveFile(learning: learning, revision: revision)) {
+        if let data = try? JSONEncoder().encode(SaveFile(learning: learning, revision: revision, course: course)) {
             try? data.write(to: Self.fileURL, options: .atomic)
         }
     }
@@ -263,7 +292,79 @@ final class Journal {
     func resetAll() {
         learning = nil
         revision = nil
+        course = nil
         save()
+    }
+
+    // MARK: Cours
+
+    /// Active le cours : ce que tu apprends à partir de maintenant sera à réciter.
+    func startCourse(weekday: Int) {
+        course = Course(weekday: weekday, lastPosition: learning?.position ?? 0)
+        save()
+    }
+
+    func setCourseDay(_ weekday: Int) {
+        guard var c = course else { return startCourse(weekday: weekday) }
+        c.weekday = weekday
+        course = c
+        save()
+    }
+
+    func stopCourse() {
+        course = nil
+        save()
+    }
+
+    /// Ce que tu as appris depuis le dernier cours validé (dans l'ordre d'apprentissage).
+    func courseAyat(_ q: QuranStore) -> [Int] {
+        guard let c = course, let l = learning else { return [] }
+        let seq = q.sequence(l.direction)
+        let end = min(l.position, seq.count)
+        let start = min(c.lastPosition, end)
+        return Array(seq[start..<end])
+    }
+
+    /// Le prochain jour de cours (aujourd'hui compris).
+    func nextCourseDate() -> Date? {
+        guard let c = course else { return nil }
+        var d = Day.start(.now)
+        for _ in 0..<7 {
+            if Day.weekday(d) == c.weekday { return d }
+            d = Day.add(1, to: d)
+        }
+        return nil
+    }
+
+    /// Le cours de ce jour : validé (tout est retenu) ou à revoir.
+    func recordCourse(validated: Bool, note: String, _ q: QuranStore) {
+        guard var c = course, let l = learning else { return }
+        let ayat = courseAyat(q)
+        let session = CourseSession(date: .now, from: ayat.first, to: ayat.last, count: ayat.count,
+                                    validated: validated, note: note.trimmingCharacters(in: .whitespacesAndNewlines),
+                                    previous: c.lastPosition)
+        c.sessions.insert(session, at: 0)
+        if validated { c.lastPosition = l.position }
+        course = c
+        message = validated ? "Cours validé, machAllah !" : "Noté : à revoir pour le prochain cours"
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        save()
+    }
+
+    func deleteSession(_ id: UUID) {
+        guard var c = course, let i = c.sessions.firstIndex(where: { $0.id == id }) else { return }
+        let s = c.sessions.remove(at: i)
+        // Si on annule le dernier cours validé, ce qu'il contenait redevient à réciter.
+        if s.validated, i == 0, let previous = s.previous {
+            c.lastPosition = previous
+        }
+        course = c
+        save()
+    }
+
+    func courseDoneToday() -> CourseSession? {
+        guard let s = course?.sessions.first, Day.key(s.date) == today else { return nil }
+        return s
     }
 }
 

@@ -16,7 +16,7 @@ struct WirdApp: App {
     }
 }
 
-/// Trois onglets : aujourd'hui (le journal), apprentissage, révision.
+/// Quatre onglets : aujourd'hui (le journal), apprentissage, révision, cours.
 struct RootView: View {
     @Environment(QuranStore.self) private var store
     @AppStorage("tab") private var tab = 0
@@ -45,6 +45,9 @@ struct RootView: View {
                     NavigationStack { RevisionView() }
                         .tabItem { Label("Révision", systemImage: "arrow.triangle.2.circlepath") }
                         .tag(2)
+                    NavigationStack { CourseView() }
+                        .tabItem { Label("Cours", systemImage: "person.2") }
+                        .tag(3)
                 }
                 .overlay(alignment: .top) { Banner() }
                 .onAppear { tab = 0 }

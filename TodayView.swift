@@ -18,6 +18,10 @@ struct TodayView: View {
                     }
                 }
 
+                if journal.course != nil, journal.nextCourseDate().map({ Day.key($0) == journal.today }) == true {
+                    CourseCard()
+                }
+
                 DayCard(kind: .learning)
                 DayCard(kind: .revision)
 
