@@ -10,7 +10,7 @@ struct WirdApp: App {
             RootView()
                 .environment(store)
                 .environment(journal)
-                .tint(Color.star)
+                .tint(Color.primary)
                 .task { await store.load() }
         }
     }
@@ -20,6 +20,8 @@ struct WirdApp: App {
 struct RootView: View {
     @Environment(QuranStore.self) private var store
     @AppStorage("tab") private var tab = 0
+    /// 0 = comme l'iPhone, 1 = clair, 2 = sombre.
+    @AppStorage("theme") private var theme = 0
 
     var body: some View {
         Group {
@@ -35,7 +37,7 @@ struct RootView: View {
             } else {
                 TabView(selection: $tab) {
                     NavigationStack { TodayView() }
-                        .tabItem { Label("Aujourd’hui", systemImage: "moon.stars.fill") }
+                        .tabItem { Label("Aujourd’hui", systemImage: "checkmark.circle") }
                         .tag(0)
                     NavigationStack { LearningView() }
                         .tabItem { Label("Apprentissage", systemImage: "book.closed") }
@@ -49,13 +51,14 @@ struct RootView: View {
             }
         }
         .onAppear(perform: applyTheme)
-        .preferredColorScheme(.dark)
+        .onChange(of: theme) { applyTheme() }
     }
 
-    /// Wird vit dans l'espace : toujours en thème sombre (fenêtres et feuilles).
+    /// Clair, sombre ou comme l'iPhone : appliqué à toute l'app (fenêtres et feuilles).
     private func applyTheme() {
+        let style: UIUserInterfaceStyle = theme == 1 ? .light : theme == 2 ? .dark : .unspecified
         for scene in UIApplication.shared.connectedScenes {
-            (scene as? UIWindowScene)?.windows.forEach { $0.overrideUserInterfaceStyle = .dark }
+            (scene as? UIWindowScene)?.windows.forEach { $0.overrideUserInterfaceStyle = style }
         }
     }
 }
@@ -76,7 +79,7 @@ struct AboutView: View {
                     Text("Noms des sourates et nombre de versets : Tanzil.")
                 }
                 Section("Design") {
-                    Text("Logo et ciel étoilé dessinés pour Wird. Le « و » du logo utilise la police Amiri (licence SIL Open Font License).")
+                    Text("Logo dessiné pour Wird : un carnet avec un « و » et un marque-page rouge.")
                 }
             }
             .navigationTitle("Sources")

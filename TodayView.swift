@@ -14,7 +14,7 @@ struct TodayView: View {
                     WirdLogo(size: 58)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(Dates.long(.now).capitalized(with: Dates.fr)).font(.headline)
-                        Text(Dates.hijri(.now)).font(.subheadline).foregroundStyle(Color.star)
+                        Text(Dates.hijri(.now)).font(.subheadline).foregroundStyle(.secondary)
                     }
                 }
 
@@ -56,7 +56,7 @@ struct DayCard: View {
                     .font(.title3.bold())
                 Spacer()
                 if let chunk, chunk.done {
-                    Image(systemName: "checkmark.seal.fill").font(.title3).foregroundStyle(Color.star)
+                    Image(systemName: "checkmark.seal.fill").font(.title3).foregroundStyle(Color.primary)
                 }
             }
 
@@ -79,15 +79,15 @@ struct DayCard: View {
                             Text(chunk.done ? "C’est fait" : "Je l’ai fait")
                                 .font(.headline)
                         }
-                        .foregroundStyle(chunk.done ? Color.onStar : Color.star)
+                        .foregroundStyle(chunk.done ? Color.onBrand : Color.primary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
                         .background {
                             if chunk.done {
-                                Capsule().fill(Star.fill)
-                                    .shadow(color: Color.starGlow, radius: 12, y: 5)
+                                Capsule().fill(Color.primary)
+                                    .shadow(color: Color.black.opacity(0.15), radius: 12, y: 5)
                             } else {
-                                Capsule().strokeBorder(Color.star, lineWidth: 2)
+                                Capsule().strokeBorder(Color.primary, lineWidth: 2)
                             }
                         }
                     }
@@ -181,7 +181,7 @@ struct JournalHistory: View {
                 if journal.streak > 0 {
                     Label("\(journal.streak) jour\(journal.streak > 1 ? "s" : "")", systemImage: "flame.fill")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.star)
+                        .foregroundStyle(Color.primary)
                 }
             }
             HStack {
@@ -216,7 +216,7 @@ struct JournalHistory: View {
     @ViewBuilder
     private func mark(_ done: Bool?, _ d: Date, _ created: Date?) -> some View {
         if done == true {
-            Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(Color.star)
+            Image(systemName: "checkmark.circle.fill").font(.title3).foregroundStyle(Color.primary)
         } else if let created, d >= Day.start(created), d < Day.start(.now) {
             Image(systemName: "xmark").font(.footnote.weight(.semibold)).foregroundStyle(.secondary)
         } else {
