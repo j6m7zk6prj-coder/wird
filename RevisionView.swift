@@ -45,7 +45,7 @@ struct RevisionView: View {
         return VStack(alignment: .leading, spacing: 18) {
             // Le programme.
             VStack(alignment: .leading, spacing: 12) {
-                Text("TON PROGRAMME").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text("TON PROGRAMME").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(Color.gold)
                 Text("Tout réviser en \(r.days) jours").font(.title2.bold())
                 Text("\(Num.pagesLabel(total)) à réviser, soit ≈ \(Num.pagesLabel(perDay)) par jour.")
                     .font(.subheadline)
@@ -57,10 +57,12 @@ struct RevisionView: View {
                     ForEach([7, 14, 30], id: \.self) { d in
                         Button("\(d) jours") { journal.setRevision(days: d) }
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(r.days == d ? Color.onBrand : Color.primary)
+                            .foregroundStyle(r.days == d ? Color.onGold : Color.primary)
                             .padding(.horizontal, 14)
                             .frame(height: 34)
-                            .background(Capsule().fill(r.days == d ? Color.primary : Color.primary.opacity(0.07)))
+                            .background {
+                                if r.days == d { Capsule().fill(Gold.fill) } else { Capsule().fill(Color.primary.opacity(0.07)) }
+                            }
                             .buttonStyle(.plain)
                     }
                 }
@@ -71,12 +73,12 @@ struct RevisionView: View {
 
             // Le tour en cours.
             VStack(alignment: .leading, spacing: 12) {
-                Text(r.tours == 0 ? "PREMIER TOUR" : "TOUR \(r.tours + 1)").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text(r.tours == 0 ? "PREMIER TOUR" : "TOUR \(r.tours + 1)").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(Color.gold)
                 HStack(alignment: .firstTextBaseline) {
                     Text("\(percent(done / max(0.1, total)))").font(.system(size: 40, weight: .bold, design: .rounded))
                     Text("révisé").font(.headline).foregroundStyle(.secondary)
                 }
-                ProgressView(value: min(1, done / max(0.1, total))).tint(.primary)
+                ProgressView(value: min(1, done / max(0.1, total))).tint(Color.gold)
                 Text(tourText(left, daysLeft))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -90,7 +92,7 @@ struct RevisionView: View {
 
             // Où tu reprends.
             VStack(alignment: .leading, spacing: 12) {
-                Text("OÙ TU EN ES").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text("OÙ TU EN ES").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(Color.gold)
                 if let chunk, !chunk.isEmpty {
                     Text(chunk.done ? "Fait aujourd’hui" : "Prochain passage").font(.caption).foregroundStyle(.secondary)
                     Text(Passage.label(Array(chunk.ayat), store)).font(.title3.weight(.semibold))
@@ -149,6 +151,8 @@ struct RevisionStartPicker: View {
                     Text("Seules les sourates que tu connais sont proposées.")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background { AppBackground() }
             .navigationTitle("Reprendre à")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

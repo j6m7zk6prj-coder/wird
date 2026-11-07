@@ -46,6 +46,8 @@ struct SettingsView: View {
                     Button("Tout effacer", role: .destructive) { confirmReset = true }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background { AppBackground() }
             .navigationTitle("Réglages")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

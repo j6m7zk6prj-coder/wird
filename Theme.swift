@@ -56,36 +56,112 @@ struct PressStyle: ButtonStyle {
     }
 }
 
+/// Le gros bouton doré.
 struct BigButtonStyle: ButtonStyle {
-    var color: Color = .brand
-
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(Color.onBrand)
+            .foregroundStyle(Color.onGold)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Capsule().fill(color.gradient))
-            .shadow(color: .black.opacity(0.15), radius: 10, y: 4)
+            .background(Capsule().fill(Gold.fill))
+            .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.8))
+            .shadow(color: Color.goldShadow, radius: 12, y: 5)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
-/// Fond doux : un voile émeraude en haut, une touche dorée en bas.
+// MARK: - L'or de Wird
+
+extension Color {
+    /// Or lisible : plus profond en thème clair, plus lumineux en sombre.
+    static let gold = Color(uiColor: UIColor { t in
+        t.userInterfaceStyle == .dark ? UIColor(red: 0.87, green: 0.72, blue: 0.40, alpha: 1)
+                                      : UIColor(red: 0.62, green: 0.46, blue: 0.15, alpha: 1)
+    })
+    /// Le texte posé sur l'or.
+    static let onGold = Color(red: 0.11, green: 0.08, blue: 0.02)
+    static let goldShadow = Color(red: 0.55, green: 0.38, blue: 0.08).opacity(0.35)
+}
+
+enum Gold {
+    /// Feuille d'or : reflets clairs et sombres en diagonale.
+    static let fill = LinearGradient(
+        colors: [Color(red: 0.96, green: 0.84, blue: 0.52), Color(red: 0.78, green: 0.58, blue: 0.22),
+                 Color(red: 0.97, green: 0.86, blue: 0.56), Color(red: 0.66, green: 0.47, blue: 0.16)],
+        startPoint: .topLeading, endPoint: .bottomTrailing)
+}
+
+// MARK: - Motifs et logo (dessinés pour Wird, rangés dans theme.json)
+
+@MainActor
+enum ThemeArt {
+    private struct File: Decodable {
+        let patternDark: String
+        let patternLight: String
+        let logo: String
+    }
+
+    private static let file: File? = {
+        guard let url = Bundle.main.url(forResource: "theme", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(File.self, from: data)
+    }()
+
+    private static func image(_ base64: String?, scale: CGFloat) -> UIImage? {
+        guard let base64, let data = Data(base64Encoded: base64) else { return nil }
+        return UIImage(data: data, scale: scale)
+    }
+
+    static let patternDark = image(file?.patternDark, scale: 2.2)
+    static let patternLight = image(file?.patternLight, scale: 2.2)
+    static let logo = image(file?.logo, scale: 2)
+}
+
+/// Le logo de Wird : le « و » doré posé sur le W.
+struct WirdLogo: View {
+    var size: CGFloat = 56
+
+    var body: some View {
+        if let img = ThemeArt.logo {
+            Image(uiImage: img)
+                .resizable()
+                .scaledToFit()
+                .frame(width: size, height: size)
+        } else {
+            Text("و").font(.system(size: size * 0.8, weight: .bold)).foregroundStyle(Color.gold)
+                .frame(width: size, height: size)
+        }
+    }
+}
+
+/// Le fond : de la calligraphie gravée, noire sur noir ou ivoire sur ivoire.
 struct AppBackground: View {
-    var tint: Color = .brand
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        Color(.systemGroupedBackground).ignoresSafeArea()
+        let dark = scheme == .dark
+        ZStack {
+            (dark ? Color(red: 0.043, green: 0.043, blue: 0.047) : Color(red: 0.965, green: 0.957, blue: 0.94))
+            if let img = dark ? ThemeArt.patternDark : ThemeArt.patternLight {
+                Image(uiImage: img)
+                    .resizable(resizingMode: .tile)
+            }
+            // Un voile pour que le texte reste lisible.
+            LinearGradient(colors: [(dark ? Color.black : Color.white).opacity(dark ? 0.35 : 0.45), .clear,
+                                    (dark ? Color.black : Color.white).opacity(dark ? 0.25 : 0.3)],
+                           startPoint: .top, endPoint: .bottom)
+        }
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }
 
 /// Un anneau de progression.
 struct Ring: View {
     let value: Double
-    var color: Color = .brand
+    var color: Color = .gold
     var width: CGFloat = 10
 
     var body: some View {

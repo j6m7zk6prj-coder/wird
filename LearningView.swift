@@ -48,12 +48,12 @@ struct LearningView: View {
         return VStack(alignment: .leading, spacing: 18) {
             // Ce que tu connais.
             VStack(alignment: .leading, spacing: 10) {
-                Text("TU CONNAIS").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text("TU CONNAIS").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(Color.gold)
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(Num.pages(knownPages)).font(.system(size: 44, weight: .bold, design: .rounded))
                     Text("pages sur 604").font(.headline).foregroundStyle(.secondary)
                 }
-                ProgressView(value: min(1, knownPages / 604)).tint(.primary)
+                ProgressView(value: min(1, knownPages / 604)).tint(Color.gold)
                 Text("≈ \(Num.pages(knownPages / 20)) juz · \(percent(knownPages / 604)) du Coran")
                     .font(.subheadline).foregroundStyle(.secondary)
             }
@@ -63,7 +63,7 @@ struct LearningView: View {
 
             // L'objectif.
             VStack(alignment: .leading, spacing: 12) {
-                Text("TON OBJECTIF").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text("TON OBJECTIF").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(Color.gold)
                 Text("\(Num.pagesLabel(l.pagesPerWeek)) par semaine").font(.title2.bold())
                 Text("Soit environ \(versesPerDay(l, seq)) versets par jour (≈ \(Num.pagesLabel(perDay))).")
                     .font(.subheadline)
@@ -74,7 +74,7 @@ struct LearningView: View {
                     Spacer()
                     Text("\(Num.pages(weekPages)) / \(Num.pages(l.pagesPerWeek)) pages").font(.subheadline.weight(.semibold).monospacedDigit())
                 }
-                ProgressView(value: min(1, weekPages / max(0.1, l.pagesPerWeek))).tint(.primary)
+                ProgressView(value: min(1, weekPages / max(0.1, l.pagesPerWeek))).tint(Color.gold)
                 if let chunk, !chunk.isEmpty {
                     Divider()
                     Text("Prochain passage").font(.caption).foregroundStyle(.secondary)
@@ -87,7 +87,7 @@ struct LearningView: View {
 
             // Projection.
             VStack(alignment: .leading, spacing: 12) {
-                Text("SI TU TIENS CE RYTHME").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text("SI TU TIENS CE RYTHME").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(Color.gold)
                 ForEach(horizons, id: \.0) { h in
                     projection(h.1, days: h.0, l, seq, knownPages)
                     if h.0 != horizons.last?.0 { Divider() }
@@ -233,6 +233,8 @@ struct LearningSetup: View {
                     Text("1 page du Mushaf = 15 lignes. 1 hizb ≈ 10 pages, 1 juz ≈ 20 pages.")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background { AppBackground() }
             .navigationTitle("Mon apprentissage")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

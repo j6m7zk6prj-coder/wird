@@ -10,7 +10,7 @@ struct WirdApp: App {
             RootView()
                 .environment(store)
                 .environment(journal)
-                .tint(Color.primary)
+                .tint(Color.gold)
                 .task { await store.load() }
         }
     }
@@ -29,7 +29,7 @@ struct RootView: View {
                 ContentUnavailableView("Problème", systemImage: "exclamationmark.triangle", description: Text(error))
             } else if !store.loaded {
                 VStack(spacing: 14) {
-                    Text("وِرْد").font(.system(size: 54, weight: .semibold))
+                    WirdLogo(size: 120)
                     ProgressView()
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -77,6 +77,9 @@ struct AboutView: View {
                     Text("Pages (604) et juz du Mushaf de Médine, d’après les données du Complexe du Roi Fahd (KFGQPC, Hafs).")
                     Text("Quarts de hizb (rub‘) : données de Tanzil (tanzil.net), recalées sur les juz du Mushaf de Médine.")
                     Text("Noms des sourates et nombre de versets : Tanzil.")
+                }
+                Section("Design") {
+                    Text("Logo et motifs de calligraphie dessinés pour Wird avec les polices Aref Ruqaa, Amiri et Cinzel (licence SIL Open Font License).")
                 }
             }
             .navigationTitle("Sources")
