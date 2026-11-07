@@ -37,6 +37,13 @@ final class QuranStore {
     private(set) var surahStart: [Int] = []
     private(set) var pageStart: [Int] = []
     private(set) var juzStart: [Int] = []
+    /// Part de page de chaque verset (1 ÷ nombre de versets sur sa page).
+    private(set) var weight: [Double] = []
+    /// L'ordre d'apprentissage : du début (Al-Fâtiha → An-Nâs) ou de la fin (An-Nâs, Al-Falaq… → Al-Fâtiha).
+    private(set) var forward: [Int] = []
+    private(set) var backward: [Int] = []
+    private var forwardIndex: [Int] = []
+    private var backwardIndex: [Int] = []
 
 
     func load() async {
@@ -92,6 +99,48 @@ final class QuranStore {
         js[0] = 0
         pageStart = ps
         juzStart = js
+        var w = Array(repeating: 1.0, count: Self.ayahCount)
+        for p in 1...604 {
+            let r = ps[p]..<ps[p + 1]
+            for g in r { w[g] = 1 / Double(max(1, r.count)) }
+        }
+        weight = w
+        forward = Array(0..<Self.ayahCount)
+        var back: [Int] = []
+        for n in stride(from: list.count, through: 1, by: -1) {
+            let lo = start[n - 1]
+            back.append(contentsOf: lo..<(lo + list[n - 1].count))
+        }
+        backward = back
+        forwardIndex = forward
+        var bi = Array(repeating: 0, count: Self.ayahCount)
+        for (i, g) in back.enumerated() { bi[g] = i }
+        backwardIndex = bi
+    }
+
+    func sequence(_ d: Direction) -> [Int] { d == .forward ? forward : backward }
+
+    /// Place d'un verset dans l'ordre choisi.
+    func index(of g: Int, _ d: Direction) -> Int { d == .forward ? forwardIndex[g] : backwardIndex[g] }
+
+    /// Nombre de pages (avec décimales) d'une suite de versets.
+    func pages(_ seq: [Int], _ a: Int, _ b: Int) -> Double {
+        guard b > a else { return 0 }
+        var t = 0.0
+        for i in max(0, a)..<min(b, seq.count) { t += weight[seq[i]] }
+        return t
+    }
+
+    /// Avance d'environ `p` pages à partir de la position `a` (au moins 1 verset).
+    func advance(_ seq: [Int], from a: Int, pages p: Double, limit: Int) -> Int {
+        var i = a, t = 0.0
+        while i < limit {
+            let w = weight[seq[i]]
+            if i > a, t + w / 2 > p { break }
+            t += w
+            i += 1
+        }
+        return max(min(a + 1, limit), i)
     }
 
     // MARK: Repères
@@ -114,31 +163,9 @@ final class QuranStore {
     func rub(_ g: Int) -> Int { rubOf.indices.contains(g) ? rubOf[g] : 1 }
     func hizb(_ g: Int) -> Int { (rub(g) + 3) / 4 }
 
-    /// Le bloc (page, rub‘, nisf, hizb, juz) d'un verset, pour compter dans l'unité choisie.
-    func block(_ g: Int, _ unit: PlanUnit) -> Int {
-        switch unit {
-        case .ayahs: return g
-        case .pages: return page(g)
-        case .rub: return rub(g)
-        case .nisf: return (rub(g) + 1) / 2
-        case .hizb: return hizb(g)
-        case .juz: return juz(g)
-        }
-    }
-
     /// Hizb h (1…60) : ses versets.
     func hizbRange(_ h: Int) -> Range<Int> { rubStart[4 * h - 3]..<rubStart[min(241, 4 * h + 1)] }
 
-    /// Combien de blocs différents dans une liste de versets.
-    func count(_ list: [Int], in unit: PlanUnit) -> Int {
-        guard unit != .ayahs else { return list.count }
-        var n = 0, last = -1
-        for g in list {
-            let b = block(g, unit)
-            if b != last { n += 1; last = b }
-        }
-        return n
-    }
     func juz(_ g: Int) -> Int { juzOf.indices.contains(g) ? juzOf[g] : 1 }
 
     func surahRange(_ n: Int) -> Range<Int> {

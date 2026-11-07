@@ -102,11 +102,11 @@ struct Ring: View {
 
 /// Petit message en haut de l'écran (« C'est noté »…).
 struct Banner: View {
-    @Environment(Tracker.self) private var tracker
+    @Environment(Journal.self) private var journal
 
     var body: some View {
         Group {
-            if let message = tracker.message {
+            if let message = journal.message {
                 Text(message)
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 18)
@@ -116,11 +116,11 @@ struct Banner: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .task(id: message) {
                         try? await Task.sleep(for: .seconds(2.2))
-                        if tracker.message == message { tracker.message = nil }
+                        if journal.message == message { journal.message = nil }
                     }
             }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: tracker.message)
+        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: journal.message)
         .allowsHitTesting(false)
     }
 }
@@ -133,6 +133,16 @@ enum Dates {
     /// « vendredi 6 novembre ».
     static func long(_ d: Date) -> String {
         d.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(fr))
+    }
+
+    /// « sam. 7 nov. ».
+    static func dayShort(_ d: Date) -> String {
+        d.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).locale(fr))
+    }
+
+    /// « mars 2031 ».
+    static func monthYear(_ d: Date) -> String {
+        d.formatted(.dateTime.month(.wide).year().locale(fr))
     }
 
     /// « 6 nov. 2026 ».

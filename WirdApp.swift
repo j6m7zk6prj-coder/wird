@@ -3,20 +3,20 @@ import SwiftUI
 @main
 struct WirdApp: App {
     @State private var store = QuranStore()
-    @State private var tracker = Tracker()
+    @State private var journal = Journal()
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environment(store)
-                .environment(tracker)
+                .environment(journal)
                 .tint(Color.primary)
                 .task { await store.load() }
         }
     }
 }
 
-/// Les onglets : aujourd'hui, objectifs, ta progression.
+/// Trois onglets : aujourd'hui (le journal), apprentissage, révision.
 struct RootView: View {
     @Environment(QuranStore.self) private var store
     @AppStorage("tab") private var tab = 0
@@ -37,17 +37,17 @@ struct RootView: View {
             } else {
                 TabView(selection: $tab) {
                     NavigationStack { TodayView() }
-                        .tabItem { Label("Aujourd’hui", systemImage: "sun.horizon.fill") }
+                        .tabItem { Label("Aujourd’hui", systemImage: "checkmark.circle") }
                         .tag(0)
-                    NavigationStack { PlansView() }
-                        .tabItem { Label("Objectifs", systemImage: "target") }
+                    NavigationStack { LearningView() }
+                        .tabItem { Label("Apprentissage", systemImage: "book.closed") }
                         .tag(1)
-                    NavigationStack { ProgressTab() }
-                        .tabItem { Label("Progrès", systemImage: "chart.bar.fill") }
-                        .tag(3)
+                    NavigationStack { RevisionView() }
+                        .tabItem { Label("Révision", systemImage: "arrow.triangle.2.circlepath") }
+                        .tag(2)
                 }
                 .overlay(alignment: .top) { Banner() }
-                .onAppear { if tab == 2 { tab = 0 } }
+                .onAppear { tab = 0 }
             }
         }
         .onAppear(perform: applyTheme)
