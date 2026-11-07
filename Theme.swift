@@ -56,50 +56,44 @@ struct PressStyle: ButtonStyle {
     }
 }
 
-/// Le gros bouton doré.
+/// Le gros bouton : une lumière d'étoile, avec un léger halo.
 struct BigButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundStyle(Color.onGold)
+            .foregroundStyle(Color.onStar)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Capsule().fill(Gold.fill))
-            .overlay(Capsule().strokeBorder(.white.opacity(0.35), lineWidth: 0.8))
-            .shadow(color: Color.goldShadow, radius: 12, y: 5)
+            .background(Capsule().fill(Star.fill))
+            .shadow(color: Color.starGlow, radius: configuration.isPressed ? 6 : 16)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
-// MARK: - L'or de Wird
+// MARK: - Couleurs de l'espace
 
 extension Color {
-    /// Or lisible : plus profond en thème clair, plus lumineux en sombre.
-    static let gold = Color(uiColor: UIColor { t in
-        t.userInterfaceStyle == .dark ? UIColor(red: 0.87, green: 0.72, blue: 0.40, alpha: 1)
-                                      : UIColor(red: 0.62, green: 0.46, blue: 0.15, alpha: 1)
-    })
-    /// Le texte posé sur l'or.
-    static let onGold = Color(red: 0.11, green: 0.08, blue: 0.02)
-    static let goldShadow = Color(red: 0.55, green: 0.38, blue: 0.08).opacity(0.35)
+    /// La lumière des étoiles : un blanc bleuté, pour les accents.
+    static let star = Color(red: 0.76, green: 0.84, blue: 1.0)
+    /// Le texte posé sur la lumière d'étoile : bleu nuit.
+    static let onStar = Color(red: 0.03, green: 0.06, blue: 0.16)
+    static let starGlow = Color(red: 0.45, green: 0.6, blue: 1.0).opacity(0.45)
+    /// Le fond de l'espace.
+    static let night = Color(red: 0.012, green: 0.024, blue: 0.063)
 }
 
-enum Gold {
-    /// Feuille d'or : reflets clairs et sombres en diagonale.
-    static let fill = LinearGradient(
-        colors: [Color(red: 0.96, green: 0.84, blue: 0.52), Color(red: 0.78, green: 0.58, blue: 0.22),
-                 Color(red: 0.97, green: 0.86, blue: 0.56), Color(red: 0.66, green: 0.47, blue: 0.16)],
-        startPoint: .topLeading, endPoint: .bottomTrailing)
+enum Star {
+    static let fill = LinearGradient(colors: [.white, Color(red: 0.78, green: 0.85, blue: 1.0)],
+                                     startPoint: .top, endPoint: .bottom)
 }
 
-// MARK: - Motifs et logo (dessinés pour Wird, rangés dans theme.json)
+// MARK: - Le ciel et le logo (dessinés pour Wird, rangés dans theme.json)
 
 @MainActor
 enum ThemeArt {
     private struct File: Decodable {
-        let patternDark: String
-        let patternLight: String
+        let sky: String
         let logo: String
     }
 
@@ -114,12 +108,11 @@ enum ThemeArt {
         return UIImage(data: data, scale: scale)
     }
 
-    static let patternDark = image(file?.patternDark, scale: 2.2)
-    static let patternLight = image(file?.patternLight, scale: 2.2)
+    static let sky = image(file?.sky, scale: 3)
     static let logo = image(file?.logo, scale: 2)
 }
 
-/// Le logo de Wird : le « و » doré posé sur le W.
+/// Le logo de Wird : un « و » lumineux, entouré d'une orbite.
 struct WirdLogo: View {
     var size: CGFloat = 56
 
@@ -130,38 +123,132 @@ struct WirdLogo: View {
                 .scaledToFit()
                 .frame(width: size, height: size)
         } else {
-            Text("و").font(.system(size: size * 0.8, weight: .bold)).foregroundStyle(Color.gold)
+            Text("و").font(.system(size: size * 0.8, weight: .bold)).foregroundStyle(Color.star)
                 .frame(width: size, height: size)
         }
     }
 }
 
-/// Le fond : de la calligraphie gravée, noire sur noir ou ivoire sur ivoire.
+/// Le fond : le ciel de nuit qui dérive très lentement, des étoiles qui scintillent,
+/// et de temps en temps une étoile filante.
 struct AppBackground: View {
-    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var drift = false
 
     var body: some View {
-        let dark = scheme == .dark
-        ZStack {
-            (dark ? Color(red: 0.043, green: 0.043, blue: 0.047) : Color(red: 0.965, green: 0.957, blue: 0.94))
-            if let img = dark ? ThemeArt.patternDark : ThemeArt.patternLight {
-                Image(uiImage: img)
-                    .resizable(resizingMode: .tile)
+        GeometryReader { geo in
+            ZStack {
+                Color.night
+                if let sky = ThemeArt.sky {
+                    Image(uiImage: sky)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: geo.size.width * 1.12, height: geo.size.height * 1.12)
+                        .offset(x: drift ? -geo.size.width * 0.04 : geo.size.width * 0.04,
+                                y: drift ? geo.size.height * 0.02 : -geo.size.height * 0.02)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                }
+                if !reduceMotion {
+                    Twinkles()
+                }
+                // Un voile en haut et en bas pour que le texte reste lisible.
+                LinearGradient(colors: [Color.night.opacity(0.55), .clear, .clear, Color.night.opacity(0.45)],
+                               startPoint: .top, endPoint: .bottom)
             }
-            // Un voile pour que le texte reste lisible.
-            LinearGradient(colors: [(dark ? Color.black : Color.white).opacity(dark ? 0.35 : 0.45), .clear,
-                                    (dark ? Color.black : Color.white).opacity(dark ? 0.25 : 0.3)],
-                           startPoint: .top, endPoint: .bottom)
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 90).repeatForever(autoreverses: true)) { drift = true }
+        }
+    }
+}
+
+/// Des étoiles qui s'allument et s'éteignent doucement, et une étoile filante de temps en temps.
+struct Twinkles: View {
+    private struct Twinkle {
+        let x: Double, y: Double, size: Double, speed: Double, phase: Double, bright: Bool
+    }
+
+    private static let stars: [Twinkle] = {
+        var rng = SeededRandom(seed: 7)
+        return (0..<55).map { i in
+            Twinkle(x: rng.next(), y: rng.next(), size: 0.8 + rng.next() * 1.8,
+                    speed: 0.6 + rng.next() * 1.6, phase: rng.next() * 6.28, bright: i % 9 == 0)
+        }
+    }()
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1 / 30)) { context in
+            let t = context.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                for s in Self.stars {
+                    let glow = 0.5 + 0.5 * sin(t * s.speed + s.phase)
+                    let p = CGPoint(x: s.x * size.width, y: s.y * size.height)
+                    let r = s.size * (s.bright ? 1.6 : 1) * (0.7 + 0.5 * glow)
+                    let alpha = (s.bright ? 0.35 : 0.15) + (s.bright ? 0.65 : 0.6) * glow * glow
+                    // halo
+                    ctx.fill(Path(ellipseIn: CGRect(x: p.x - r * 4, y: p.y - r * 4, width: r * 8, height: r * 8)),
+                             with: .radialGradient(Gradient(colors: [Color.star.opacity(alpha * 0.35), .clear]),
+                                                   center: p, startRadius: 0, endRadius: r * 4))
+                    // cœur
+                    ctx.fill(Path(ellipseIn: CGRect(x: p.x - r / 2, y: p.y - r / 2, width: r, height: r)),
+                             with: .color(.white.opacity(alpha)))
+                    // aigrettes des plus brillantes
+                    if s.bright {
+                        let l = r * 5 * glow
+                        var cross = Path()
+                        cross.move(to: CGPoint(x: p.x - l, y: p.y)); cross.addLine(to: CGPoint(x: p.x + l, y: p.y))
+                        cross.move(to: CGPoint(x: p.x, y: p.y - l)); cross.addLine(to: CGPoint(x: p.x, y: p.y + l))
+                        ctx.stroke(cross, with: .color(.white.opacity(alpha * 0.5)), lineWidth: 0.6)
+                    }
+                }
+                shootingStar(ctx, size, t)
+            }
+        }
+    }
+
+    /// Toutes les 11 secondes, une étoile filante traverse le ciel en 1,2 s.
+    private func shootingStar(_ ctx: GraphicsContext, _ size: CGSize, _ t: Double) {
+        let period = 11.0, duration = 1.2
+        let cycle = floor(t / period)
+        let local = t - cycle * period
+        guard local < duration else { return }
+        var rng = SeededRandom(seed: UInt64(abs(Int(cycle)) % 100_000 + 1))
+        let start = CGPoint(x: size.width * (0.15 + rng.next() * 0.7), y: size.height * (0.05 + rng.next() * 0.35))
+        let angle = 0.45 + rng.next() * 0.35
+        let length = size.width * 0.55
+        let k = local / duration
+        let head = CGPoint(x: start.x + cos(angle) * length * k, y: start.y + sin(angle) * length * k)
+        let tail = CGPoint(x: head.x - cos(angle) * size.width * 0.18, y: head.y - sin(angle) * size.width * 0.18)
+        let fade = sin(k * .pi)
+        var path = Path()
+        path.move(to: tail)
+        path.addLine(to: head)
+        ctx.stroke(path, with: .linearGradient(Gradient(colors: [.clear, .white.opacity(0.85 * fade)]),
+                                               startPoint: tail, endPoint: head),
+                   style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
+        ctx.fill(Path(ellipseIn: CGRect(x: head.x - 1.6, y: head.y - 1.6, width: 3.2, height: 3.2)),
+                 with: .color(.white.opacity(fade)))
+    }
+}
+
+/// Un hasard toujours le même (les étoiles restent à leur place).
+struct SeededRandom {
+    private var state: UInt64
+    init(seed: UInt64) { state = seed &* 6364136223846793005 &+ 1442695040888963407 }
+    mutating func next() -> Double {
+        state = state &* 6364136223846793005 &+ 1442695040888963407
+        return Double((state >> 33) % 1_000_000) / 1_000_000
     }
 }
 
 /// Un anneau de progression.
 struct Ring: View {
     let value: Double
-    var color: Color = .gold
+    var color: Color = .star
     var width: CGFloat = 10
 
     var body: some View {

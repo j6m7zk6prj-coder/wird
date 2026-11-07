@@ -6,7 +6,6 @@ import UserNotifications
 struct SettingsView: View {
     @Environment(Journal.self) private var journal
     @Environment(\.dismiss) private var dismiss
-    @AppStorage("theme") private var theme = 0
     @AppStorage("reminder") private var reminder = false
     @AppStorage("reminderMinutes") private var reminderMinutes = 7 * 60
     @State private var about = false
@@ -16,15 +15,6 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Apparence") {
-                    Picker("Thème", selection: $theme) {
-                        Text("Auto").tag(0)
-                        Text("Clair").tag(1)
-                        Text("Sombre").tag(2)
-                    }
-                    .pickerStyle(.segmented)
-                }
-
                 Section {
                     Toggle("Me rappeler mon wird", isOn: $reminder)
                     if reminder {
