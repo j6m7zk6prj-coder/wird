@@ -49,8 +49,6 @@ struct LibraryHomeView: View {
                     rowDivider
                     LibraryLink(title: "Favoris", icon: "star") { SongsView(favoritesOnly: true) }
                     rowDivider
-                    LibraryLink(title: "Pochettes", icon: "photo.on.rectangle.angled") { ArtworkGalleryView() }
-                    rowDivider
                 }
 
                 if settings.showRecent && !library.recentlyAdded.isEmpty {

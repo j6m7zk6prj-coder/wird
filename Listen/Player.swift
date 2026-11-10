@@ -34,7 +34,7 @@ final class Player {
     /// Reprise depuis le widget : l'endroit où reprendre le morceau.
     @ObservationIgnored private var pendingSeek: Double?
     @ObservationIgnored private var widgetKey = ""
-    @ObservationIgnored private var widgetArtworkID: UUID?
+    @ObservationIgnored private var widgetArtworkKey = ""
 
     /// Position exacte, lue à l'instant même (pour les animations image par image, comme les paroles).
     var liveTime: Double {
@@ -627,12 +627,15 @@ final class Player {
             position: elapsed.isFinite ? elapsed : currentTime, duration: duration, isPlaying: isPlaying,
             updated: .now, queue: Array(queue.prefix(400).map(\.uuidString)))
         snap.save()
-        if widgetArtworkID != id {
-            widgetArtworkID = id
+        // La pochette change aussi quand tu en choisis une nouvelle pendant l'écoute.
+        let artKey = "\(id)-" + (library.artworkURL(t)?.lastPathComponent ?? "")
+        let newArtwork = artKey != widgetArtworkKey
+        if newArtwork {
+            widgetArtworkKey = artKey
             ListenSnapshot.saveArtwork(library.image(for: t).flatMap { Self.widgetArtwork($0) })
         }
         let key = "\(id)-\(isPlaying)-\(Int(duration.isFinite ? duration : 0))"
-        if force || key != widgetKey {
+        if force || newArtwork || key != widgetKey {
             widgetKey = key
             WidgetCenter.shared.reloadTimelines(ofKind: ListenSnapshot.kind)
         }
