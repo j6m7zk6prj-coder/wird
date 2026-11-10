@@ -13,44 +13,11 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var settings = settings
         Form {
-            Section {
-                NavigationLink {
-                    TravelModeView()
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "airplane")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 30, height: 30)
-                            .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(.orange))
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("Mode voyage").font(.body.weight(.semibold))
-                            Text("Écouter sans connexion").font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-
-            Section {
-                Toggle("Fondu entre les morceaux", isOn: $settings.fadeTransitions)
-                if settings.fadeTransitions {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Durée du fondu")
-                            Spacer()
-                            Text("\(Int(settings.fadeDuration)) s").monospacedDigit().foregroundStyle(.secondary)
-                        }
-                        Slider(value: $settings.fadeDuration, in: 1...12, step: 1)
-                    }
-                }
+            Section("Lecture") {
                 Picker("Vitesse de lecture", selection: Binding(get: { settings.playbackSpeed }, set: { player.setSpeed($0) })) {
                     ForEach(AppSettings.speeds, id: \.self) { Text(AppSettings.speedLabel($0)).tag($0) }
                 }
                 Toggle("Pause si les écouteurs sont retirés", isOn: $settings.pauseOnDisconnect)
-            } header: {
-                Text("Lecture")
-            } footer: {
-                Text("Le fondu baisse le son à la fin d’un morceau et le remonte au début du suivant.")
             }
 
             Section {
@@ -72,32 +39,29 @@ struct SettingsView: View {
             } header: {
                 Text("Minuterie de sommeil")
             } footer: {
-                Text("La musique s’arrête doucement à la fin du temps choisi.")
-            }
-
-            Section("Apparence") {
-                NavigationLink {
-                    AppearanceSettingsView()
-                } label: {
-                    HStack {
-                        Label("Thème et affichage", systemImage: "paintpalette")
-                        Spacer()
-                        Text(settings.theme.label).foregroundStyle(.secondary)
-                    }
-                }
-                Toggle("Retours haptiques", isOn: $settings.haptics)
+                Text("La lecture s’arrête à la fin du temps choisi.")
             }
 
             Section {
-                Picker("Trier les morceaux par", selection: $settings.songSort) {
-                    ForEach(SongSort.allCases) { Text($0.label).tag($0) }
-                }
+                Toggle("Pochettes animées", isOn: $settings.animatedArtwork)
+            } header: {
+                Text("Pochettes")
+            } footer: {
+                Text("Les pochettes vidéo ou GIF que tu choisis s’animent dans Écouter et dans le lecteur.")
+            }
+
+            Section {
+                Toggle("Lecteur sur l’écran verrouillé", isOn: $settings.lockScreenPlayer)
+                    .onChange(of: settings.lockScreenPlayer) { _, _ in player.applyLockScreenPlayer() }
+                Toggle("Pochette animée sur l’écran verrouillé", isOn: $settings.lockScreenAnimation)
+                    .disabled(!settings.lockScreenPlayer)
+                    .onChange(of: settings.lockScreenAnimation) { _, _ in player.updateNowPlaying() }
+            } header: {
+                Text("Écran verrouillé")
+            }
+
+            Section {
                 Toggle("Importer depuis le dossier Wird", isOn: $settings.autoImport)
-                Button {
-                    ui.importing = true
-                } label: {
-                    Label("Importer de la musique", systemImage: "plus.circle")
-                }
             } header: {
                 Text("Bibliothèque")
             } footer: {
@@ -106,12 +70,10 @@ struct SettingsView: View {
 
             Section("Stockage") {
                 LabeledContent("Morceaux", value: "\(library.tracks.count)")
-                LabeledContent("Playlists", value: "\(library.playlists.count)")
                 LabeledContent("Durée totale", value: formatDuration(library.totalDuration))
                 LabeledContent("Espace utilisé", value: ByteCountFormatter.string(fromByteCount: storage, countStyle: .file))
-                LabeledContent("Clips de l’écran verrouillé", value: ByteCountFormatter.string(fromByteCount: lockBytes, countStyle: .file))
                 if lockBytes > 0 {
-                    Button("Vider les clips (refaits au besoin)") {
+                    Button("Vider les clips de l’écran verrouillé") {
                         LockScreenArtwork.shared.clear()
                         lockBytes = 0
                         player.updateNowPlaying()
@@ -120,16 +82,8 @@ struct SettingsView: View {
                 Button("Supprimer toute la bibliothèque", role: .destructive) { confirmDelete = true }
                     .disabled(library.tracks.isEmpty && library.playlists.isEmpty)
             }
-
-            Section {
-                LabeledContent("Version", value: "11.6")
-            } footer: {
-                Text("Wird lit ta propre musique. Seule la recherche de paroles contacte internet (LRCLIB), et uniquement quand tu ouvres des paroles absentes ou lances la recherche.")
-            }
         }
-        .scrollContentBackground(.hidden)
         .navigationTitle("Réglages")
-        .background { AmbientBackground(track: player.currentID.flatMap { library.track($0) }, dim: 0.65) }
         .task(id: library.tracks.count) {
             storage = library.storageBytes()
             lockBytes = LockScreenArtwork.cacheBytes()

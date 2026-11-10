@@ -41,39 +41,19 @@ struct GlassStyle<S: InsettableShape>: ViewModifier {
     @Environment(AppSettings.self) private var settings: AppSettings?
 
     func body(content: Content) -> some View {
-        let enabled = settings?.liquidGlass ?? true
-        // 0 = verre presque opaque et sombre, 1 = verre très transparent.
-        let intensity = settings?.glassIntensity ?? 0.6
-        if !enabled {
-            content
-                .background(shape.fill(Color(white: 0.13)))
-                .overlay { shape.strokeBorder(.white.opacity(0.1), lineWidth: 0.75) }
-                .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
-        } else {
-            liquid(content, intensity: intensity)
-        }
-    }
-
-    @ViewBuilder private func liquid(_ content: Content, intensity: Double) -> some View {
-        let tint = Color.black.opacity((1 - intensity) * 0.55)
+        // Le verre natif d'iOS, sans teinte.
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
-            let base: Glass = intensity > 0.85 ? .clear : .regular
-            let glass = base.tint(tint)
             if interactive {
-                content.glassEffect(glass.interactive(), in: shape)
+                content.glassEffect(.regular.interactive(), in: shape)
             } else {
-                content.glassEffect(glass, in: shape)
+                content.glassEffect(.regular, in: shape)
             }
         } else {
-            content
-                .background(shape.fill(tint))
-                .frostedGlass(shape)
+            content.background(.ultraThinMaterial, in: shape)
         }
         #else
-        content
-            .background(shape.fill(tint))
-            .frostedGlass(shape)
+        content.background(.ultraThinMaterial, in: shape)
         #endif
     }
 }
@@ -367,25 +347,15 @@ struct AmbientBackground: View {
     }
 
     var body: some View {
+        // Noir et blanc : le fond du système (clair ou sombre), noir dans le lecteur.
         Group {
-            switch theme {
-            case .dynamic: dynamicBackground(light: false)
-            case .light: dynamicBackground(light: true)
-            case .black: Color.black
-            case .white: Color.white
-            case .graphite:
-                LinearGradient(colors: [Color(white: 0.15), Color(white: 0.07)], startPoint: .top, endPoint: .bottom)
-            case .midnight:
-                ZStack {
-                    LinearGradient(colors: [Color(red: 0.07, green: 0.1, blue: 0.24), Color(red: 0.02, green: 0.03, blue: 0.09)],
-                                   startPoint: .top, endPoint: .bottom)
-                    RadialGradient(colors: [Color(red: 0.25, green: 0.3, blue: 0.7).opacity(0.35), .clear],
-                                   center: .topTrailing, startRadius: 0, endRadius: 500)
-                }
+            if forceDark {
+                Color.black
+            } else {
+                Color(.systemBackground)
             }
         }
         .ignoresSafeArea()
-        .animation(.easeInOut(duration: 0.5), value: settings.activeTheme)
     }
 
     private func dynamicBackground(light: Bool) -> some View {

@@ -123,7 +123,7 @@ struct AlbumDetailView: View {
                                 headerY = y
                             }
                     } else {
-                        ArtworkView(track: album.cover, animated: false, cornerRadius: 14)
+                        ArtworkView(track: album.cover, animated: true, cornerRadius: 14)
                             .frame(width: 250, height: 250)
                             .shadow(color: .black.opacity(0.45), radius: 24, y: 14)
                     }

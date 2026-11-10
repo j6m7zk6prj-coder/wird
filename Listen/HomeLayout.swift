@@ -50,8 +50,8 @@ struct HomeItem: Codable, Identifiable, Hashable {
     var isUnique: Bool { ![.artist, .playlist, .album].contains(kind) }
 
     static let defaults: [HomeItem] = [
-        HomeItem(kind: .resume), HomeItem(kind: .mixes), HomeItem(kind: .playlists), HomeItem(kind: .clips),
-        HomeItem(kind: .edits), HomeItem(kind: .recent), HomeItem(kind: .added), HomeItem(kind: .artists)
+        HomeItem(kind: .resume), HomeItem(kind: .playlists), HomeItem(kind: .recent),
+        HomeItem(kind: .added), HomeItem(kind: .artists)
     ]
 }
 

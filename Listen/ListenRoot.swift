@@ -20,6 +20,8 @@ final class ListenContext {
         let player = player
         ListenControl.toggle = { player.widgetToggle() }
         ListenControl.next = { player.next() }
+        // Wird : le son tel quel, sans effet.
+        if player.effect != .original { player.setEffect(.original) }
     }
 }
 

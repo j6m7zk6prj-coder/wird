@@ -75,28 +75,10 @@ struct HomeView: View {
         .fullScreenCover(isPresented: $showFeed) { DiscoverScreen() }
     }
 
-    /// La bibliothèque et Découvrir, en lignes comme dans Musique.
+    /// La bibliothèque, en ligne comme dans Musique.
     private var shortcuts: some View {
         VStack(spacing: 0) {
             LibraryLink(title: "Bibliothèque", icon: "square.stack") { LibraryHomeView() }
-            Divider().padding(.leading, 44)
-            Button { showFeed = true } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: "play.rectangle.on.rectangle")
-                        .font(.system(size: 21, weight: .regular))
-                        .foregroundStyle(.tint)
-                        .frame(width: 30)
-                    Text("Découvrir").font(.title3)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                }
-                .padding(.vertical, 13)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(RowPressStyle())
-            .foregroundStyle(.primary)
             Divider().padding(.leading, 44)
         }
         .padding(.horizontal, 20)
@@ -381,41 +363,39 @@ private struct HeroAlbumCard: View {
     @Environment(Player.self) private var player
 
     var body: some View {
-        let colors = library.palette(for: album.cover)
         NavigationLink { AlbumDetailView(albumID: album.id) } label: {
             HStack(spacing: 16) {
                 ArtworkView(track: album.cover, animated: true, cornerRadius: 12)
                     .frame(width: 128, height: 128)
-                    .shadow(color: .black.opacity(0.35), radius: 14, y: 8)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(album.year > 0 ? "ALBUM · \(String(album.year))" : "ALBUM")
                         .font(.caption2.weight(.bold))
                         .tracking(0.8)
-                        .foregroundStyle(.white.opacity(0.65))
+                        .foregroundStyle(.secondary)
                     Text(album.title)
                         .font(.title3.bold())
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
                     Text(album.artist)
                         .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.75))
+                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                     Spacer(minLength: 6)
                     HStack(spacing: 8) {
                         Button { player.play(ids: album.tracks.map(\.id), shuffled: false) } label: {
                             Label("Lire", systemImage: "play.fill")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(Color(.systemBackground))
                                 .padding(.horizontal, 16)
                                 .frame(height: 34)
-                                .background(Capsule().fill(.white))
+                                .background(Capsule().fill(Color.primary))
                         }
                         Button { player.play(ids: album.tracks.map(\.id), shuffled: true) } label: {
                             Image(systemName: "shuffle")
                                 .font(.subheadline.weight(.bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.primary)
                                 .frame(width: 34, height: 34)
-                                .background(Circle().fill(.white.opacity(0.22)))
+                                .background(Circle().fill(Color.primary.opacity(0.1)))
                         }
                         .accessibilityLabel("Aléatoire")
                     }
@@ -424,18 +404,7 @@ private struct HeroAlbumCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(16)
-            .background {
-                ZStack {
-                    LinearGradient(colors: [colors[0], colors[1]], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    if let img = library.backdrop(for: album.cover) {
-                        Image(uiImage: img).resizable().scaledToFill().opacity(0.55)
-                    }
-                    LinearGradient(colors: [.black.opacity(0.05), .black.opacity(0.45)], startPoint: .top, endPoint: .bottom)
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
-            .shadow(color: colors[0].opacity(0.35), radius: 20, y: 10)
+            .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color(.secondarySystemBackground)))
         }
         .buttonStyle(PressStyle(circle: false))
     }
@@ -458,14 +427,13 @@ private struct MixCard: View {
         Button { player.play(ids: mix.tracks.map(\.id), shuffled: true) } label: {
             VStack(alignment: .leading, spacing: 0) {
                 ZStack(alignment: .bottomLeading) {
-                    LinearGradient(colors: mix.colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                    Color(.secondarySystemBackground)
                     // Pochettes du mix, en éventail.
                     let covers = Array(mix.tracks.prefix(3))
                     ZStack {
                         ForEach(Array(covers.enumerated().reversed()), id: \.offset) { i, t in
-                            ArtworkView(track: t, animated: false, small: true, cornerRadius: 8)
+                            ArtworkView(track: t, animated: true, small: true, cornerRadius: 8)
                                 .frame(width: 84, height: 84)
-                                .shadow(color: .black.opacity(0.3), radius: 6, y: 4)
                                 .rotationEffect(.degrees(Double(i) * 7 - 7))
                                 .offset(x: CGFloat(i) * 26, y: CGFloat(i) * -6)
                         }
@@ -478,20 +446,19 @@ private struct MixCard: View {
                         Text(mix.title).font(.title3.bold())
                         Text(mix.subtitle).font(.caption.weight(.medium)).opacity(0.8)
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .padding(14)
 
                     Image(systemName: "play.fill")
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(.systemBackground))
                         .frame(width: 34, height: 34)
-                        .background(Circle().fill(.black.opacity(0.25)))
+                        .background(Circle().fill(Color.primary))
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                         .padding(12)
                 }
                 .frame(width: 230, height: 230)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.white.opacity(0.12), lineWidth: 0.5))
             }
         }
         .buttonStyle(PressStyle(circle: false))
@@ -650,7 +617,7 @@ private struct PinnedPlaylistSection: View {
                 ForEach(tracks.prefix(4)) { t in
                     Button { player.play(ids: tracks.map(\.id), startAt: t.id) } label: {
                         HStack(spacing: 12) {
-                            ArtworkView(track: t, animated: false, small: true, cornerRadius: 7).frame(width: 46, height: 46)
+                            ArtworkView(track: t, animated: true, small: true, cornerRadius: 7).frame(width: 46, height: 46)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(t.title).font(.body.weight(.medium)).lineLimit(1).foregroundStyle(.primary)
                                 Text(t.displayArtist).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)

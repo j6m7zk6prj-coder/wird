@@ -133,14 +133,8 @@ final class AppSettings {
 
     /// Le thème réellement affiché : celui choisi, éclairci ou assombri selon le mode.
     var activeTheme: AppTheme {
-        let lightVersion: AppTheme = theme.isLight ? theme : .light
-        let darkVersion: AppTheme = theme.isLight ? .dynamic : theme
-        switch appearance {
-        case .theme: return theme
-        case .light: return lightVersion
-        case .dark: return darkVersion
-        case .auto: return systemIsLight ? lightVersion : darkVersion
-        }
+        // Dans Wird : noir et blanc, et simplement le mode clair ou sombre de l'app.
+        systemIsLight ? .white : .black
     }
     var lyricsSize: LyricsSize { didSet { UserDefaults.standard.set(lyricsSize.rawValue, forKey: "lyricsSize") } }
     var artworkStyle: ArtworkStyle { didSet { UserDefaults.standard.set(artworkStyle.rawValue, forKey: "artworkStyle") } }
@@ -160,7 +154,7 @@ final class AppSettings {
     var priceStickers: Bool { didSet { UserDefaults.standard.set(priceStickers, forKey: "priceStickers") } }
 
     /// Couleur d'accent lisible sur le thème choisi (le blanc devient noir sur un thème clair).
-    var tint: Color { activeTheme.isLight && accent == .white ? .black : accent.color }
+    var tint: Color { .primary }
 
     init() {
         let d = UserDefaults.standard
@@ -188,6 +182,14 @@ final class AppSettings {
         liquidGlass = d.object(forKey: "liquidGlass") as? Bool ?? true
         glassIntensity = d.object(forKey: "glassIntensity") as? Double ?? 0.6
         priceStickers = d.object(forKey: "priceStickers") as? Bool ?? true
+        // Wird : lecture simple, sans fondu ni décor.
+        fadeTransitions = false
+        dynamicBackground = false
+        backgroundMotion = false
+        shrinkWrap = false
+        priceStickers = false
+        liquidGlass = true
+        accent = .white
     }
 }
 

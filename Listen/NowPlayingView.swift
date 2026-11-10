@@ -293,9 +293,6 @@ struct NowPlayingView: View {
                     Button(repeatLabel, systemImage: player.repeatMode == .one ? "repeat.1" : "repeat") {
                         player.cycleRepeat()
                     }
-                    Button("Effets : " + player.effect.title, systemImage: "dial.medium") {
-                        showEffects = true
-                    }
                     Divider()
                     Button("Changer la pochette", systemImage: "photo.on.rectangle") {
                         editing = EditTarget(id: t.id)
@@ -405,10 +402,7 @@ struct NowPlayingView: View {
     /// Comme Musique : paroles, appareil de sortie (avec son nom) et file d'attente.
     private var bottomBar: some View {
         HStack(alignment: .top, spacing: 0) {
-            toggle(symbol: "quote.bubble", on: showLyrics, label: "Paroles") {
-                showLyrics.toggle()
-                if showLyrics { queueOpen = false }
-            }
+            Color.clear.frame(width: 44, height: 36)
             Spacer()
             VStack(spacing: 4) {
                 RoutePicker()
