@@ -6,12 +6,22 @@ options:
     iOS: "17.0"
   createIntermediateGroups: true
 
+settings:
+  base:
+    MARKETING_VERSION: "2.7"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    SWIFT_VERSION: "5.0"
+
 targets:
   Wird:
     type: application
     platform: iOS
     sources:
       - path: Wird
+      - path: Shared
+    dependencies:
+      - target: WirdWidget
     info:
       path: Support/Info.plist
       properties:
@@ -21,11 +31,35 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
+    entitlements:
+      path: Support/Wird.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.wird.app]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.wird.app
-        MARKETING_VERSION: "2.6"
-        CURRENT_PROJECT_VERSION: "1"
-        TARGETED_DEVICE_FAMILY: "1"
-        SWIFT_VERSION: "5.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+
+  # Les widgets (écran d'accueil et écran verrouillé).
+  WirdWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: WirdWidget
+      - path: Shared
+    info:
+      path: Support/WirdWidget-Info.plist
+      properties:
+        CFBundleDisplayName: Wird
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: Support/WirdWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.wird.app]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.wird.app.widget
+        SKIP_INSTALL: "YES"

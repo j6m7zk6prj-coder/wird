@@ -78,6 +78,12 @@ jobs:
         run: |
           mkdir -p Payload
           cp -R build/Release-iphoneos/Wird.app Payload/
+          # Les widgets doivent être dans l'app.
+          test -d Payload/Wird.app/PlugIns/WirdWidget.appex
+          # Signature locale avec le groupe partagé app ↔ widgets (l'outil d'installation re-signe ensuite).
+          codesign -f -s - --entitlements Support/WirdWidget.entitlements Payload/Wird.app/PlugIns/WirdWidget.appex
+          codesign -f -s - --entitlements Support/Wird.entitlements Payload/Wird.app
+          codesign -d --entitlements - Payload/Wird.app/PlugIns/WirdWidget.appex
           zip -qry Wird.ipa Payload
 
       - uses: actions/upload-artifact@v4

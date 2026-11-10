@@ -19,6 +19,8 @@ struct WirdApp: App {
 /// Quatre onglets : aujourd'hui (le journal), apprentissage, révision, cours.
 struct RootView: View {
     @Environment(QuranStore.self) private var store
+    @Environment(Journal.self) private var journal
+    @Environment(\.scenePhase) private var phase
     @AppStorage("tab") private var tab = 0
     /// 0 = comme l'iPhone, 1 = clair, 2 = sombre.
     @AppStorage("theme") private var theme = 0
@@ -55,6 +57,17 @@ struct RootView: View {
         }
         .onAppear(perform: applyTheme)
         .onChange(of: theme) { applyTheme() }
+        // Widgets : mis à jour à chaque case cochée, à l'ouverture et quand on quitte l'app.
+        .onChange(of: store.loaded) { connectWidgets() }
+        .onChange(of: phase) { if store.loaded { WidgetBridge.publish(journal, store) } }
+        .onAppear { connectWidgets() }
+    }
+
+    private func connectWidgets() {
+        guard store.loaded else { return }
+        let j = journal, s = store
+        journal.onSave = { WidgetBridge.publish(j, s) }
+        WidgetBridge.publish(journal, store)
     }
 
     /// Clair, sombre ou comme l'iPhone : appliqué à toute l'app (fenêtres et feuilles).

@@ -127,6 +127,9 @@ final class Journal {
 
     private(set) var course: Course?
 
+    /// Appelé après chaque enregistrement (pour mettre à jour les widgets).
+    @ObservationIgnored var onSave: (@MainActor () -> Void)?
+
     private struct SaveFile: Codable {
         var learning: Learning?
         var revision: Revision?
@@ -152,6 +155,7 @@ final class Journal {
         if let data = try? JSONEncoder().encode(SaveFile(learning: learning, revision: revision, course: course)) {
             try? data.write(to: Self.fileURL, options: .atomic)
         }
+        onSave?()
     }
 
     var today: String { Day.key(.now) }
@@ -182,8 +186,9 @@ final class Journal {
     }
 
     /// Versets par jour pour tenir l'objectif de la semaine, à partir d'une position.
-    func learningChunk(_ q: QuranStore) -> DayChunk? {
+    func learningChunk(_ q: QuranStore, now: Date = .now) -> DayChunk? {
         guard let l = learning else { return nil }
+        let today = Day.key(now)
         let seq = q.sequence(l.direction)
         let start = l.dayKey == today ? l.dayStart : l.position
         guard start < seq.count else { return DayChunk(seq: seq, from: seq.count, to: seq.count, done: l.log[today] != nil) }
@@ -191,7 +196,7 @@ final class Journal {
         if let c = l.dayCount, l.dayKey == today {
             end = min(seq.count, start + max(1, c))
         } else {
-            end = q.advance(seq, from: start, pages: coursePlan(q)?.today ?? l.pagesPerWeek / 7, limit: seq.count)
+            end = q.advance(seq, from: start, pages: coursePlan(q, now: now)?.today ?? l.pagesPerWeek / 7, limit: seq.count)
         }
         return DayChunk(seq: seq, from: start, to: end, done: l.log[today] != nil)
     }
@@ -244,8 +249,9 @@ final class Journal {
         knownPages(q) / Double(max(1, revision?.days ?? 14))
     }
 
-    func revisionChunk(_ q: QuranStore) -> DayChunk? {
+    func revisionChunk(_ q: QuranStore, now: Date = .now) -> DayChunk? {
         guard let r = revision, let k = known(q), !k.isEmpty else { return nil }
+        let today = Day.key(now)
         var start = r.dayKey == today ? r.dayStart : r.position
         if start >= k.count { start = 0 }
         let end: Int
