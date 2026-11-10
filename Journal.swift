@@ -69,6 +69,20 @@ struct CourseSession: Codable, Identifiable {
     var previous: Int?
 }
 
+/// Ce qu'il reste à apprendre avant le prochain cours, réparti sur les jours restants.
+struct CoursePlan {
+    /// Jours d'apprentissage avant le cours, aujourd'hui compris (le jour du cours ne compte pas).
+    let daysLeft: Int
+    /// Objectif par cours (= les pages par semaine).
+    let goal: Double
+    /// Pages déjà apprises pour ce cours, sans compter aujourd'hui.
+    let done: Double
+    var remaining: Double { max(0, goal - done) }
+    /// Pages à apprendre aujourd'hui.
+    var today: Double { remaining > 0.01 ? remaining / Double(max(1, daysLeft)) : goal / 7 }
+    var reached: Bool { remaining <= 0.01 }
+}
+
 /// Ce qu'il y a à faire aujourd'hui.
 struct DayChunk {
     let seq: [Int]
@@ -98,6 +112,10 @@ enum Day {
     static let names: [(Int, String)] = [(2, "Lundi"), (3, "Mardi"), (4, "Mercredi"), (5, "Jeudi"), (6, "Vendredi"), (7, "Samedi"), (1, "Dimanche")]
     static func name(_ weekday: Int) -> String { names.first { $0.0 == weekday }?.1 ?? "" }
     static func add(_ days: Int, to date: Date) -> Date { calendar.date(byAdding: .day, value: days, to: date) ?? date }
+    /// Nombre de jours entre deux dates (à minuit).
+    static func between(_ a: Date, _ b: Date) -> Int {
+        calendar.dateComponents([.day], from: start(a), to: start(b)).day ?? 0
+    }
 }
 
 @MainActor
@@ -173,7 +191,7 @@ final class Journal {
         if let c = l.dayCount, l.dayKey == today {
             end = min(seq.count, start + max(1, c))
         } else {
-            end = q.advance(seq, from: start, pages: l.pagesPerWeek / 7, limit: seq.count)
+            end = q.advance(seq, from: start, pages: coursePlan(q)?.today ?? l.pagesPerWeek / 7, limit: seq.count)
         }
         return DayChunk(seq: seq, from: start, to: end, done: l.log[today] != nil)
     }
@@ -337,18 +355,49 @@ final class Journal {
         nextCourse(after: now).map { Day.add(-7, to: $0) }
     }
 
-    /// Ce que tu as appris depuis le dernier cours (à réciter au prochain).
-    func learnedSinceCourse(_ q: QuranStore, now: Date = .now) -> [Int] {
-        guard let l = learning, let prev = previousCourse(now) else { return [] }
+    /// Le jour du prochain cours où tu récites (le jour même s'il n'a pas encore eu lieu).
+    private func courseDay(_ now: Date) -> Date? {
+        nextCourse(after: now).map { Day.start($0) }
+    }
+
+    /// Versets cochés entre deux jours (`from` inclus, `to` exclu), sans dépasser aujourd'hui.
+    private func logged(_ l: Learning, from: Date, to: Date, now: Date) -> Int {
         var count = 0
-        var d = Day.add(1, to: Day.start(prev))
-        while d <= Day.start(now) {
+        var d = Day.start(from)
+        let last = Day.start(now)
+        while d < to && d <= last {
             count += l.log[Day.key(d)] ?? 0
             d = Day.add(1, to: d)
         }
+        return count
+    }
+
+    /// Ce que tu as appris pour le prochain cours (à y réciter) : depuis le jour du cours précédent.
+    func learnedSinceCourse(_ q: QuranStore, now: Date = .now) -> [Int] {
+        guard let l = learning, let day = courseDay(now) else { return [] }
+        let count = logged(l, from: Day.add(-7, to: day), to: day, now: now)
+        // Si le cours est aujourd'hui, ce que tu as appris aujourd'hui compte déjà pour le suivant.
+        let after = logged(l, from: day, to: Day.add(1, to: Day.start(now)), now: now)
         let seq = q.sequence(l.direction)
-        let end = min(l.position, seq.count)
+        let end = max(0, min(l.position, seq.count) - after)
         return Array(seq[max(0, end - count)..<end])
+    }
+
+    /// Combien apprendre aujourd'hui pour tenir l'objectif avant le cours.
+    /// Exemple : 3 pages, déjà 1,5 page faite, cours dans 3 jours → 0,5 page par jour.
+    func coursePlan(_ q: QuranStore, now: Date = .now) -> CoursePlan? {
+        guard let l = learning, var end = courseDay(now) else { return nil }
+        let today = Day.start(now)
+        // Le jour du cours, ce que tu apprends compte pour le cours suivant.
+        if end <= today { end = Day.add(7, to: end) }
+        let start = Day.add(-7, to: end)
+        let days = max(1, Day.between(today, end))
+        // Ce qui est déjà appris pour ce cours, avant aujourd'hui.
+        let count = logged(l, from: start, to: today, now: now)
+        let seq = q.sequence(l.direction)
+        let from = min(l.dayKey == Day.key(now) ? l.dayStart : l.position, seq.count)
+        let done = q.pages(seq, max(0, from - count), from)
+        return CoursePlan(daysLeft: days, goal: l.pagesPerWeek, done: done)
     }
 }
 

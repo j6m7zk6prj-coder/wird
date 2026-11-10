@@ -71,6 +71,9 @@ struct DayCard: View {
                     .buttonStyle(BigButtonStyle())
             } else if let chunk, !chunk.isEmpty {
                 passage(chunk)
+                if kind == .learning, !chunk.done, let plan = journal.coursePlan(store) {
+                    PlanLine(plan: plan)
+                }
                 HStack(spacing: 10) {
                     Button {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
@@ -140,6 +143,36 @@ struct DayCard: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+/// « Cours dans 3 jours · encore 1,5 page → 0,5 page par jour ».
+struct PlanLine: View {
+    let plan: CoursePlan
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "calendar.badge.clock").foregroundStyle(.secondary)
+            Text(text).font(.footnote).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var when: String {
+        switch plan.daysLeft {
+        case 1: return "Cours demain"
+        default: return "Cours dans \(plan.daysLeft) jours"
+        }
+    }
+
+    private var text: String {
+        if plan.reached {
+            return "\(when) : objectif de \(Num.pagesLabel(plan.goal)) déjà atteint, machAllah. Tu prends de l’avance."
+        }
+        if plan.daysLeft == 1 {
+            return "\(when) : il te reste \(Num.pagesLabel(plan.remaining)) sur \(Num.pages(plan.goal)), à faire aujourd’hui."
+        }
+        return "\(when) : il te reste \(Num.pagesLabel(plan.remaining)) sur \(Num.pages(plan.goal)), soit ≈ \(Num.pagesLabel(plan.today)) par jour."
     }
 }
 

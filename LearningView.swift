@@ -65,9 +65,13 @@ struct LearningView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("TON OBJECTIF").font(.caption.weight(.bold)).tracking(1.2).foregroundStyle(.secondary)
                 Text("\(Num.pagesLabel(l.pagesPerWeek)) par semaine").font(.title2.bold())
-                Text("Soit environ \(versesPerDay(l, seq)) versets par jour (≈ \(Num.pagesLabel(perDay))).")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                if let plan = journal.coursePlan(store) {
+                    PlanLine(plan: plan)
+                } else {
+                    Text("Soit environ \(versesPerDay(l, seq)) versets par jour (≈ \(Num.pagesLabel(perDay))).")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
                 Divider()
                 HStack {
                     Text("Cette semaine").font(.subheadline)
