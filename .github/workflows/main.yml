@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -84,6 +84,15 @@ jobs:
         with:
           name: Wird-ipa
           path: Wird.ipa
+
+      - name: Publier dans Releases (lien sans connexion)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Wird (dernière version)
+          body: Téléchargez **Wird.ipa** ci-dessous, puis installez-le avec iLoader.
+          make_latest: true
+          files: Wird.ipa
 
       - uses: actions/upload-artifact@v4
         if: failure()
