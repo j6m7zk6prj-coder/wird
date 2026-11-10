@@ -54,41 +54,6 @@ struct TrackInfoEditor: View {
                             .multilineTextAlignment(.trailing)
                     }
                 }
-                Section {
-                    TextEditor(text: $lyrics)
-                        .font(.callout.monospaced())
-                        .frame(minHeight: 180)
-                    Button {
-                        Task { await searchLyrics() }
-                    } label: {
-                        HStack {
-                            Label("Chercher les paroles en ligne", systemImage: "magnifyingglass")
-                            Spacer()
-                            if searching { ProgressView() }
-                        }
-                    }
-                    .disabled(searching)
-                    Button {
-                        showLRCImporter = true
-                    } label: {
-                        Label("Importer un fichier .lrc", systemImage: "doc.text")
-                    }
-                    if !lyrics.isEmpty {
-                        Button("Effacer les paroles", role: .destructive) { lyrics = "" }
-                    }
-                } header: {
-                    HStack {
-                        Text("Paroles")
-                        Spacer()
-                        if LyricsParser.isSynced(lyrics) {
-                            Label("Synchronisées", systemImage: "waveform")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.tint)
-                        }
-                    }
-                } footer: {
-                    Text("Pour des paroles synchronisées, chaque ligne commence par son temps : [01:23.45] Texte. La recherche utilise LRCLIB, une base de paroles gratuite.")
-                }
             }
             .navigationTitle("Modifier les infos")
             .navigationBarTitleDisplayMode(.inline)

@@ -85,7 +85,8 @@ struct HomeView: View {
     }
 
     private var content: some View {
-        let items = layout.items
+        // Rubriques retirées de Wird (clips, edits, mix) : jamais affichées.
+        let items = layout.items.filter { ![.clips, .edits, .mixes].contains($0.kind) }
         return ScrollView {
             VStack(alignment: .leading, spacing: 34) {
                 Text(Date.now.formatted(Date.FormatStyle(locale: Locale(identifier: "fr_FR")).weekday(.wide).day().month(.wide)).capitalized)

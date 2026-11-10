@@ -266,7 +266,7 @@ struct HomeGallery: View {
         NavigationStack {
             List {
                 Section("Rubriques") {
-                    ForEach(HomeItem.Kind.allCases.filter { ![.artist, .playlist, .album].contains($0) }, id: \.self) { kind in
+                    ForEach(HomeItem.Kind.allCases.filter { ![.artist, .playlist, .album, .clips, .edits, .mixes].contains($0) }, id: \.self) { kind in
                         let item = HomeItem(kind: kind)
                         let already = layout.contains(kind)
                         Button {

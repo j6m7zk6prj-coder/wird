@@ -11,7 +11,7 @@ struct SearchView: View {
             if query.isEmpty {
                 if library.recentlyPlayed.isEmpty {
                     ContentUnavailableView("Cherche dans ta musique", systemImage: "magnifyingglass",
-                                           description: Text("Titres, artistes, albums, playlists et paroles."))
+                                           description: Text("Titres, artistes, albums et playlists."))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                 } else {
@@ -26,7 +26,7 @@ struct SearchView: View {
             }
         }
         .plainList()
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Titres, artistes, albums, paroles")
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Titres, artistes, albums")
         .navigationTitle("Recherche")
         .background { AmbientBackground(track: player.currentID.flatMap { library.track($0) }, dim: 0.6) }
     }

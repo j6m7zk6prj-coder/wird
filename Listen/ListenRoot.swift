@@ -58,7 +58,7 @@ struct DiscoverScreen: View {
     }
 }
 
-/// Ce que le lecteur ajoute à toute l'app : lecteur plein écran, feuilles, import, Collection.
+/// Ce que le lecteur ajoute à toute l'app : lecteur plein écran, feuilles, import.
 struct ListenHost: ViewModifier {
     let selectedTab: Int
     @Environment(Library.self) private var library
@@ -66,8 +66,6 @@ struct ListenHost: ViewModifier {
     @Environment(AppSettings.self) private var settings
     @Environment(UIState.self) private var ui
     @Environment(\.scenePhase) private var phase
-    /// La Collection est chargée (cachée) peu après le lancement, pour s'ouvrir sans attendre.
-    @State private var shelfMounted = false
     /// Le mini-lecteur s'agrandit en lecteur plein écran (et s'y referme en glissant vers le bas).
     @Namespace private var playerZoom
 
@@ -79,19 +77,6 @@ struct ListenHost: ViewModifier {
             .environment(\.playerZoomNamespace, playerZoom)
             .sheet(item: $ui.editing) { target in
                 ArtworkEditor(trackID: target.id)
-            }
-            .overlay {
-                if shelfMounted {
-                    ShelfView(visible: ui.showShelf, onClose: { ui.showShelf = false })
-                        .environment(\.colorScheme, .dark)
-                        .opacity(ui.showShelf ? 1 : 0)
-                        .allowsHitTesting(ui.showShelf)
-                        .accessibilityHidden(!ui.showShelf)
-                        .animation(.smooth(duration: 0.32), value: ui.showShelf)
-                }
-            }
-            .onChange(of: ui.showShelf) { _, shown in
-                if shown { shelfMounted = true }
             }
             .sheet(item: $ui.editingInfo) { target in
                 TrackInfoEditor(trackID: target.id)
@@ -107,13 +92,8 @@ struct ListenHost: ViewModifier {
             .task {
                 if settings.autoImport { await library.scanInbox() }
                 player.publishWidget()
-                // La Collection 3D n'est préparée que si tu as de la musique, et sans ralentir l'ouverture.
                 guard !library.tracks.isEmpty else { return }
                 try? await Task.sleep(for: .seconds(2.5))
-                let playing = player.currentID.flatMap { library.track($0) }?.albumKey
-                let start = library.albums.firstIndex { $0.id == playing } ?? 0
-                await ShelfSceneController.warmUp(library: library, settings: settings, start: start)
-                shelfMounted = true
                 if settings.lockScreenAnimation {
                     try? await Task.sleep(for: .seconds(6))
                     player.warmUpcomingLockArtwork()
