@@ -38,7 +38,7 @@ struct TodayView: View {
                     .accessibilityLabel("Réglages")
             }
         }
-        .sheet(isPresented: $settings) { SettingsView() }
+        .sheet(isPresented: $settings) { WirdSettingsView() }
     }
 }
 
@@ -98,7 +98,7 @@ struct DayCard: View {
                             }
                         }
                     }
-                    .buttonStyle(PressStyle())
+                    .buttonStyle(WirdPressStyle())
                     if !chunk.done {
                         Menu {
                             Button("Un verset de plus", systemImage: "plus") { adjust(1) }
@@ -108,7 +108,7 @@ struct DayCard: View {
                                 .font(.headline)
                                 .foregroundStyle(.primary)
                                 .frame(width: 56, height: 56)
-                                .glassCircle()
+                                .wirdGlassCircle()
                         }
                         .accessibilityLabel("Changer le nombre de versets")
                     }
@@ -123,7 +123,7 @@ struct DayCard: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glass(26)
+        .wirdGlass(26)
         .sheet(isPresented: $setup) { LearningSetup() }
     }
 
@@ -246,7 +246,7 @@ struct JournalHistory: View {
             }
         }
         .padding(18)
-        .glass(26)
+        .wirdGlass(26)
     }
 
     /// ✓ fait, ✕ pas fait, — pas encore commencé.

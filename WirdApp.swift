@@ -4,26 +4,35 @@ import SwiftUI
 struct WirdApp: App {
     @State private var store = QuranStore()
     @State private var journal = Journal()
+    /// Le lecteur de musique (onglet Écouter), prêt dès le lancement : les widgets peuvent le piloter.
+    @State private var listen: ListenContext
+
+    init() {
+        _listen = State(initialValue: ListenContext())
+    }
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            WirdRootView()
                 .environment(store)
                 .environment(journal)
+                .listenEnvironment(listen)
                 .tint(Color.primary)
                 .task { await store.load() }
         }
     }
 }
 
-/// Quatre onglets : aujourd'hui (le journal), apprentissage, révision, cours.
-struct RootView: View {
+/// Cinq onglets : aujourd'hui (le journal), apprentissage, révision, cours, et Écouter (la musique).
+struct WirdRootView: View {
     @Environment(QuranStore.self) private var store
     @Environment(Journal.self) private var journal
     @Environment(\.scenePhase) private var phase
     @AppStorage("tab") private var tab = 0
     /// 0 = comme l'iPhone, 1 = clair, 2 = sombre.
     @AppStorage("theme") private var theme = 0
+    /// Ouvert depuis le widget « Reprendre l'écoute » : on arrive sur Écouter.
+    @State private var openedListen = false
 
     var body: some View {
         Group {
@@ -39,20 +48,34 @@ struct RootView: View {
             } else {
                 TabView(selection: $tab) {
                     NavigationStack { TodayView() }
+                        .modifier(MiniPlayerInset(tab: 0))
                         .tabItem { Label("Aujourd’hui", systemImage: "checkmark.circle") }
                         .tag(0)
                     NavigationStack { LearningView() }
+                        .modifier(MiniPlayerInset(tab: 1))
                         .tabItem { Label("Apprentissage", systemImage: "book.closed") }
                         .tag(1)
                     NavigationStack { RevisionView() }
+                        .modifier(MiniPlayerInset(tab: 2))
                         .tabItem { Label("Révision", systemImage: "arrow.triangle.2.circlepath") }
                         .tag(2)
                     NavigationStack { CourseView() }
+                        .modifier(MiniPlayerInset(tab: 3))
                         .tabItem { Label("Cours", systemImage: "person.2") }
                         .tag(3)
+                    ListenTab()
+                        .tabItem { Label("Écouter", systemImage: "headphones") }
+                        .tag(ListenTab.tag)
                 }
-                .overlay(alignment: .top) { Banner() }
-                .onAppear { tab = 0 }
+                .overlay(alignment: .top) { WirdBanner() }
+                .modifier(ListenHost(selectedTab: tab))
+                .onAppear { if !openedListen { tab = 0 } }
+            }
+        }
+        .onOpenURL { url in
+            if url.host == "listen" {
+                openedListen = true
+                tab = ListenTab.tag
             }
         }
         .onAppear(perform: applyTheme)

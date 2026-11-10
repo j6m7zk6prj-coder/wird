@@ -23,7 +23,7 @@ struct RevisionView: View {
                     Button("Indiquer où j’en suis") { learningSetup = true }.buttonStyle(BigButtonStyle())
                 }
                 .padding(24)
-                .glass(26)
+                .wirdGlass(26)
                 .padding(20)
             }
         }
@@ -69,7 +69,7 @@ struct RevisionView: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glass(26)
+            .wirdGlass(26)
 
             // Le tour en cours.
             VStack(alignment: .leading, spacing: 12) {
@@ -88,7 +88,7 @@ struct RevisionView: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glass(26)
+            .wirdGlass(26)
 
             // Où tu reprends.
             VStack(alignment: .leading, spacing: 12) {
@@ -104,13 +104,13 @@ struct RevisionView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .glassCapsule(interactive: true)
+                        .wirdGlassCapsule(interactive: true)
                 }
-                .buttonStyle(PressStyle())
+                .buttonStyle(WirdPressStyle())
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glass(26)
+            .wirdGlass(26)
         }
         .padding(20)
     }

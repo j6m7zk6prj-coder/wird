@@ -3,7 +3,7 @@ import UserNotifications
 
 // MARK: - Réglages
 
-struct SettingsView: View {
+struct WirdSettingsView: View {
     @Environment(Journal.self) private var journal
     @Environment(\.dismiss) private var dismiss
     @AppStorage("theme") private var theme = 0

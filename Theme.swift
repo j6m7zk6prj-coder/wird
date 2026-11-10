@@ -4,20 +4,20 @@ import UIKit
 // MARK: - Liquid Glass (iOS 26), verre dépoli avant
 
 extension View {
-    func glass(_ radius: CGFloat = 24, interactive: Bool = false) -> some View {
-        modifier(GlassStyle(shape: RoundedRectangle(cornerRadius: radius, style: .continuous), interactive: interactive))
+    func wirdGlass(_ radius: CGFloat = 24, interactive: Bool = false) -> some View {
+        modifier(WirdGlassStyle(shape: RoundedRectangle(cornerRadius: radius, style: .continuous), interactive: interactive))
     }
 
-    func glassCapsule(interactive: Bool = false) -> some View {
-        modifier(GlassStyle(shape: Capsule(), interactive: interactive))
+    func wirdGlassCapsule(interactive: Bool = false) -> some View {
+        modifier(WirdGlassStyle(shape: Capsule(), interactive: interactive))
     }
 
-    func glassCircle() -> some View {
-        modifier(GlassStyle(shape: Circle(), interactive: true))
+    func wirdGlassCircle() -> some View {
+        modifier(WirdGlassStyle(shape: Circle(), interactive: true))
     }
 }
 
-struct GlassStyle<S: InsettableShape>: ViewModifier {
+struct WirdGlassStyle<S: InsettableShape>: ViewModifier {
     let shape: S
     var interactive = false
 
@@ -47,7 +47,7 @@ struct GlassStyle<S: InsettableShape>: ViewModifier {
     }
 }
 
-struct PressStyle: ButtonStyle {
+struct WirdPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
@@ -142,7 +142,7 @@ struct Ring: View {
 }
 
 /// Petit message en haut de l'écran (« C'est noté »…).
-struct Banner: View {
+struct WirdBanner: View {
     @Environment(Journal.self) private var journal
 
     var body: some View {
@@ -152,7 +152,7 @@ struct Banner: View {
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 18)
                     .padding(.vertical, 11)
-                    .glassCapsule()
+                    .wirdGlassCapsule()
                     .padding(.top, 6)
                     .transition(.move(edge: .top).combined(with: .opacity))
                     .task(id: message) {

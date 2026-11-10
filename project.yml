@@ -8,7 +8,7 @@ options:
 
 settings:
   base:
-    MARKETING_VERSION: "2.8"
+    MARKETING_VERSION: "3.0"
     CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1"
     SWIFT_VERSION: "5.0"
@@ -19,6 +19,7 @@ targets:
     platform: iOS
     sources:
       - path: Wird
+      - path: Listen
       - path: Shared
     dependencies:
       - target: WirdWidget
@@ -31,6 +32,14 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
+        # Écouter : la musique continue écran verrouillé, et le dossier Wird apparaît dans l'app Fichiers.
+        UIBackgroundModes: [audio]
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        NSPhotoLibraryAddUsageDescription: "Wird enregistre les pochettes que tu choisis dans tes Photos."
+        CFBundleURLTypes:
+          - CFBundleURLName: com.wird.app
+            CFBundleURLSchemes: [wird]
     entitlements:
       path: Support/Wird.entitlements
       properties:

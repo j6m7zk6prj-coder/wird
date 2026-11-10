@@ -1,0 +1,319 @@
+import Foundation
+
+/// Type de pochette personnalisée.
+enum ArtworkKind: String, Codable {
+    case image, gif, video
+}
+
+struct Track: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
+    var title: String
+    var artist: String
+    var album: String
+    var trackNumber: Int = 0
+    var year: Int = 0
+    var duration: Double
+    /// Nom du fichier audio dans le dossier Music interne.
+    var audioFile: String
+    /// Pochette trouvée dans le fichier audio (dossier Artwork interne).
+    var embeddedArtwork: String?
+    /// Pochette choisie dans l'app : image, GIF ou vidéo.
+    var customArtwork: String?
+    var customKind: ArtworkKind?
+    /// Pochette animée (vidéo ou GIF), gardée à côté de la pochette normale : on peut avoir les deux.
+    var motionArtwork: String?
+    var motionKind: ArtworkKind?
+    var addedAt: Date = Date()
+    var isFavorite: Bool = false
+    var playCount: Int = 0
+    var lastPlayed: Date?
+    var lyrics: String?
+    /// Ancien champ (bandes-son de jeux, retirées) : gardé pour lire les anciennes bibliothèques.
+    var games: [String] = []
+    /// Contenu explicite : affiche le petit « E » à côté du titre.
+    var explicit: Bool = false
+
+    var displayArtist: String { artist.isEmpty ? "Artiste inconnu" : artist }
+    var displayAlbum: String { album.isEmpty ? "Sans album" : album }
+
+    var subtitle: String {
+        [displayArtist, album].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    /// Clé qui regroupe les morceaux d'un même album.
+    var albumKey: String { displayArtist.lowercased() + "|" + displayAlbum.lowercased() }
+
+    func matches(_ query: String) -> Bool {
+        title.localizedCaseInsensitiveContains(query)
+            || artist.localizedCaseInsensitiveContains(query)
+            || album.localizedCaseInsensitiveContains(query)
+    }
+}
+
+// Décodage tolérant : les champs ajoutés plus tard ont une valeur par défaut.
+extension Track {
+    enum CodingKeys: String, CodingKey {
+        case id, title, artist, album, trackNumber, year, duration, audioFile
+        case embeddedArtwork, customArtwork, customKind, motionArtwork, motionKind, addedAt
+        case isFavorite, playCount, lastPlayed, lyrics, games, explicit
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        artist = try c.decodeIfPresent(String.self, forKey: .artist) ?? ""
+        album = try c.decodeIfPresent(String.self, forKey: .album) ?? ""
+        trackNumber = try c.decodeIfPresent(Int.self, forKey: .trackNumber) ?? 0
+        year = try c.decodeIfPresent(Int.self, forKey: .year) ?? 0
+        duration = try c.decodeIfPresent(Double.self, forKey: .duration) ?? 0
+        audioFile = try c.decode(String.self, forKey: .audioFile)
+        embeddedArtwork = try c.decodeIfPresent(String.self, forKey: .embeddedArtwork)
+        customArtwork = try c.decodeIfPresent(String.self, forKey: .customArtwork)
+        customKind = try c.decodeIfPresent(ArtworkKind.self, forKey: .customKind)
+        motionArtwork = try c.decodeIfPresent(String.self, forKey: .motionArtwork)
+        motionKind = try c.decodeIfPresent(ArtworkKind.self, forKey: .motionKind)
+        addedAt = try c.decodeIfPresent(Date.self, forKey: .addedAt) ?? Date()
+        isFavorite = try c.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        playCount = try c.decodeIfPresent(Int.self, forKey: .playCount) ?? 0
+        lastPlayed = try c.decodeIfPresent(Date.self, forKey: .lastPlayed)
+        lyrics = try c.decodeIfPresent(String.self, forKey: .lyrics)
+        games = try c.decodeIfPresent([String].self, forKey: .games) ?? []
+        explicit = try c.decodeIfPresent(Bool.self, forKey: .explicit) ?? false
+    }
+}
+
+struct Playlist: Identifiable, Codable, Hashable {
+    var id: UUID = UUID()
+    var name: String
+    var trackIDs: [UUID] = []
+    var createdAt: Date = Date()
+    var pinned: Bool = false
+}
+
+struct AlbumInfo: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let artist: String
+    let year: Int
+    let tracks: [Track]
+    /// Pochette officielle de l'album (indépendante de celle de chaque morceau).
+    var coverTrack: Track? = nil
+    var first: Track { tracks[0] }
+    /// À utiliser pour afficher la pochette de l'album.
+    var cover: Track { coverTrack ?? tracks[0] }
+    var duration: Double { tracks.reduce(0) { $0 + $1.duration } }
+    var latestAdd: Date { tracks.map(\.addedAt).max() ?? .distantPast }
+}
+
+struct ArtistInfo: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let tracks: [Track]
+    let albums: [AlbumInfo]
+}
+
+/// Format physique d'un album dans la Collection.
+enum AlbumFormat: String, CaseIterable, Identifiable {
+    case cd, cassette
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .cd: return "CD"
+        case .cassette: return "Cassette"
+        }
+    }
+    /// Formats proposés pour un album.
+    static let choosable: [AlbumFormat] = [.cd]
+}
+
+/// Badges holographiques gagnés par un album.
+enum AlbumBadge: String, Identifiable, CaseIterable {
+    // Gagnés automatiquement (si l'option est activée)
+    case platinum, gold, favorite, new
+    // Stickers à poser soi-même (appui long sur un album dans la Collection)
+    case limited, collector, signed, remastered, explicit, star, deluxe, vinylFeel, heart, fire
+
+    var id: String { rawValue }
+
+    /// Les stickers proposés quand on appuie longtemps sur un album.
+    static let stickers: [AlbumBadge] = [.limited, .collector, .deluxe, .signed, .remastered, .explicit,
+                                         .star, .heart, .fire, .new, .gold, .platinum]
+
+    var short: String {
+        switch self {
+        case .platinum: return "Platine"
+        case .gold: return "Or"
+        case .favorite: return "Favori"
+        case .new: return "Nouveau"
+        case .limited: return "Édition limitée"
+        case .collector: return "Collector"
+        case .signed: return "Signé"
+        case .remastered: return "Remasterisé"
+        case .explicit: return "Explicite"
+        case .star: return "Étoile"
+        case .deluxe: return "Deluxe"
+        case .vinylFeel: return "Analogique"
+        case .heart: return "Coup de cœur"
+        case .fire: return "Classique"
+        }
+    }
+    var label: String {
+        switch self {
+        case .platinum: return "Disque de platine"
+        case .gold: return "Disque d’or"
+        default: return short
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .platinum, .gold: return "opticaldisc.fill"
+        case .favorite, .heart: return "heart.fill"
+        case .new: return "sparkles"
+        case .limited: return "seal.fill"
+        case .collector: return "crown.fill"
+        case .signed: return "signature"
+        case .remastered: return "waveform"
+        case .explicit: return "e.square.fill"
+        case .star: return "star.fill"
+        case .deluxe: return "diamond.fill"
+        case .vinylFeel: return "record.circle"
+        case .fire: return "flame.fill"
+        }
+    }
+    /// Médaille ronde (disques, étoile, cœur), étiquette pour les autres.
+    var isMedal: Bool { [.platinum, .gold, .star, .heart, .fire].contains(self) }
+    /// Teinte du sticker : or, argent ou holographique arc-en-ciel.
+    var isGolden: Bool { self == .gold || self == .collector || self == .deluxe }
+}
+
+/// Sert à ouvrir l'éditeur de pochette pour un morceau précis.
+struct EditTarget: Identifiable {
+    let id: UUID
+}
+
+/// Sert à ouvrir « Ajouter à une playlist ».
+struct AddToPlaylistTarget: Identifiable {
+    let id = UUID()
+    let trackIDs: [UUID]
+}
+
+func formatTime(_ seconds: Double) -> String {
+    guard seconds.isFinite, seconds > 0 else { return "0:00" }
+    let s = Int(seconds.rounded(.down))
+    let h = s / 3600, m = (s % 3600) / 60, r = s % 60
+    return h > 0 ? String(format: "%d:%02d:%02d", h, m, r) : String(format: "%d:%02d", m, r)
+}
+
+/// « 42 min » ou « 1 h 05 min ».
+func formatDuration(_ seconds: Double) -> String {
+    let minutes = Int((seconds / 60).rounded())
+    if minutes >= 60 { return "\(minutes / 60) h \(String(format: "%02d", minutes % 60)) min" }
+    return "\(minutes) min"
+}
+
+func songCount(_ n: Int) -> String { n == 1 ? "1 morceau" : "\(n) morceaux" }
+
+
+/// Finition d'un sticker fait à partir de ta propre image.
+enum StickerFinish: String, Codable, CaseIterable, Identifiable {
+    case holo, silver, gold, rose, color, frosted
+    var id: String { rawValue }
+    /// Sans paillettes ni reflet holographique.
+    var isPlain: Bool { self == .frosted }
+    var label: String {
+        switch self {
+        case .holo: return "Holographique"
+        case .silver: return "Argent"
+        case .gold: return "Or"
+        case .rose: return "Or rose"
+        case .color: return "Couleurs + reflet"
+        case .frosted: return "Verre mat"
+        }
+    }
+}
+
+/// Sticker créé à partir d'une image (gardée dans le dossier des pochettes).
+struct CustomSticker: Codable, Identifiable, Hashable {
+    var id: UUID = UUID()
+    var file: String
+    var finish: StickerFinish
+    var name: String = "Mon sticker"
+    /// Forme découpée : rond ou carré arrondi.
+    var round: Bool = true
+    /// Liseré blanc de découpe autour du sticker.
+    var bordered: Bool = true
+    /// Image détourée (fond transparent) : le sticker suit la forme du dessin.
+    var cutout: Bool = false
+
+    static let prefix = "custom:"
+    var key: String { Self.prefix + id.uuidString }
+
+    init(file: String, finish: StickerFinish, round: Bool = true, bordered: Bool = true, cutout: Bool = false) {
+        self.file = file
+        self.finish = finish
+        self.round = round
+        self.bordered = bordered
+        self.cutout = cutout
+    }
+
+    // Décodage tolérant : les stickers créés avant gardent leurs réglages.
+    enum CodingKeys: String, CodingKey { case id, file, finish, name, round, bordered, cutout }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        file = try c.decode(String.self, forKey: .file)
+        finish = try c.decodeIfPresent(StickerFinish.self, forKey: .finish) ?? .holo
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Mon sticker"
+        round = try c.decodeIfPresent(Bool.self, forKey: .round) ?? true
+        bordered = try c.decodeIfPresent(Bool.self, forKey: .bordered) ?? true
+        cutout = try c.decodeIfPresent(Bool.self, forKey: .cutout) ?? false
+    }
+}
+
+
+/// Position d'un sticker sur la jaquette : x et y de 0 à 1, taille relative.
+struct StickerPlacement: Codable, Hashable {
+    var x: Double
+    var y: Double
+    var scale: Double = 1
+    var rotation: Double = 0
+    /// Coin soulevé, comme un sticker à moitié décollé.
+    var peeled: Bool = false
+
+    init(x: Double, y: Double, scale: Double = 1, rotation: Double = 0, peeled: Bool = false) {
+        self.x = x
+        self.y = y
+        self.scale = scale
+        self.rotation = rotation
+        self.peeled = peeled
+    }
+
+    enum CodingKeys: String, CodingKey { case x, y, scale, rotation, peeled }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        x = try c.decodeIfPresent(Double.self, forKey: .x) ?? 0.84
+        y = try c.decodeIfPresent(Double.self, forKey: .y) ?? 0.13
+        scale = try c.decodeIfPresent(Double.self, forKey: .scale) ?? 1
+        rotation = try c.decodeIfPresent(Double.self, forKey: .rotation) ?? 0
+        peeled = try c.decodeIfPresent(Bool.self, forKey: .peeled) ?? false
+    }
+
+    /// Placement par défaut : en colonne, en haut à droite.
+    static func standard(_ index: Int) -> StickerPlacement {
+        StickerPlacement(x: 0.84, y: 0.13 + 0.19 * Double(index), scale: 1)
+    }
+
+    var signature: String {
+        String(format: "%.3f,%.3f,%.2f,%.2f,%d", x, y, scale, rotation, peeled ? 1 : 0)
+    }
+}
+
+
+/// Fichier de la pochette officielle d'un album.
+struct AlbumCoverFile: Codable, Hashable {
+    let file: String
+    let kind: ArtworkKind
+}

@@ -11,6 +11,7 @@ struct WirdWidgets: WidgetBundle {
         ObjectiveWidget()
         CourseWidget()
         PlanningWidget()
+        ListenWidget()
         StreakWidget()
     }
 }
@@ -692,5 +693,230 @@ struct StreakWidgetView: View {
             .padding(.top, 4)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - 5. Reprendre l'écoute
+
+struct ListenEntry: TimelineEntry {
+    let date: Date
+    let snap: ListenSnapshot?
+    let artwork: UIImage?
+}
+
+struct ListenProvider: TimelineProvider {
+    func placeholder(in context: Context) -> ListenEntry { ListenEntry(date: .now, snap: .sample, artwork: nil) }
+
+    func getSnapshot(in context: Context, completion: @escaping (ListenEntry) -> Void) {
+        completion(entry(preview: context.isPreview))
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<ListenEntry>) -> Void) {
+        let e = entry(preview: false)
+        // Pendant la lecture : on se remet à jour à la fin du morceau.
+        if let s = e.snap, s.isPlaying, s.duration > 0 {
+            let end = s.updated.addingTimeInterval(max(1, s.duration - s.position) + 1)
+            completion(Timeline(entries: [e], policy: .after(end)))
+        } else {
+            completion(Timeline(entries: [e], policy: .never))
+        }
+    }
+
+    private func entry(preview: Bool) -> ListenEntry {
+        let snap = ListenSnapshot.load()
+        let art = snap == nil ? nil : ListenSnapshot.artworkData().flatMap { UIImage(data: $0) }
+        return ListenEntry(date: .now, snap: snap ?? (preview ? .sample : nil), artwork: art)
+    }
+}
+
+extension ListenSnapshot {
+    static var sample: ListenSnapshot {
+        ListenSnapshot(trackID: "", title: "Sourate Al-Mulk", artist: "Mishary Alafasy", album: "",
+                       position: 95, duration: 410, isPlaying: false, updated: .now, queue: [])
+    }
+}
+
+struct ListenWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: ListenSnapshot.kind, provider: ListenProvider()) { entry in
+            ListenWidgetView(entry: entry)
+        }
+        .configurationDisplayName("Reprendre l’écoute")
+        .description("Le dernier morceau écouté : reprends-le là où tu t’étais arrêté.")
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
+    }
+}
+
+struct ListenWidgetView: View {
+    let entry: ListenEntry
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        Group {
+            if let s = entry.snap {
+                switch family {
+                case .systemMedium: medium(s)
+                case .accessoryCircular: circular(s)
+                case .accessoryRectangular: rectangular(s)
+                case .accessoryInline: Label(s.title, systemImage: s.isPlaying ? "speaker.wave.2.fill" : "play.fill")
+                default: small(s)
+                }
+            } else if family == .accessoryInline {
+                Text("Wird : rien en écoute")
+            } else if family == .accessoryCircular {
+                ZStack {
+                    AccessoryWidgetBackground()
+                    Image(systemName: "headphones")
+                }
+            } else if family == .accessoryRectangular {
+                Text("Lance un morceau dans Wird").font(.caption)
+            } else {
+                EmptyWird(text: "Lance un morceau dans l’onglet Écouter de Wird pour le reprendre ici.")
+            }
+        }
+        .widgetURL(URL(string: "wird://listen"))
+        .wirdBackground()
+    }
+
+    private func label(_ s: ListenSnapshot) -> String { s.isPlaying ? "En lecture" : "Reprendre" }
+
+    private func artwork(_ side: CGFloat, corner: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: corner, style: .continuous).fill(Color.primary.opacity(0.08))
+            if let img = entry.artwork {
+                Image(uiImage: img).resizable().scaledToFill()
+            } else {
+                Image(systemName: "music.note")
+                    .font(.system(size: side * 0.36, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(width: side, height: side)
+        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+    }
+
+    private func playButton(_ s: ListenSnapshot, size: CGFloat) -> some View {
+        Button(intent: ToggleListeningIntent()) {
+            ZStack {
+                Circle().fill(Color.primary)
+                Image(systemName: s.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.system(size: size * 0.4, weight: .semibold))
+                    .foregroundStyle(Color(.secondarySystemGroupedBackground))
+                    .offset(x: s.isPlaying ? 0 : size * 0.04)
+            }
+            .frame(width: size, height: size)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(s.isPlaying ? "Pause" : "Lecture")
+    }
+
+    /// La barre de lecture : elle avance toute seule pendant la lecture.
+    @ViewBuilder private func progress(_ s: ListenSnapshot) -> some View {
+        if s.isPlaying, s.duration > 1 {
+            let start = s.updated.addingTimeInterval(-s.position)
+            let end = start.addingTimeInterval(max(s.duration, s.position + 1))
+            ProgressView(timerInterval: start...end, countsDown: false, label: { EmptyView() }, currentValueLabel: { EmptyView() })
+                .progressViewStyle(.linear)
+                .tint(.primary)
+        } else {
+            Bar(value: s.duration > 0 ? s.position / s.duration : 0, height: 4)
+        }
+    }
+
+    private func time(_ v: Double) -> String {
+        let t = Int(max(0, v.isFinite ? v : 0))
+        return String(format: "%d:%02d", t / 60, t % 60)
+    }
+
+    private func small(_ s: ListenSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .top) {
+                artwork(58, corner: 10)
+                Spacer(minLength: 4)
+                playButton(s, size: 40)
+            }
+            Spacer(minLength: 0)
+            Caps(label(s))
+            Text(s.title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+            Text(s.artist)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .padding(.bottom, 6)
+            progress(s)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private func medium(_ s: ListenSnapshot) -> some View {
+        HStack(spacing: 14) {
+            artwork(122, corner: 14)
+            VStack(alignment: .leading, spacing: 2) {
+                Caps(label(s))
+                Text(s.title)
+                    .font(.headline)
+                    .lineLimit(2)
+                Text(s.artist)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                progress(s)
+                if !s.isPlaying {
+                    HStack {
+                        Text(time(s.position))
+                        Spacer()
+                        Text("-" + time(s.duration - s.position))
+                    }
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 14) {
+                    playButton(s, size: 38)
+                    Button(intent: NextTrackIntent()) {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 38, height: 38)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Suivant")
+                    .disabled(!s.isPlaying)
+                    .opacity(s.isPlaying ? 1 : 0.35)
+                }
+                .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        }
+    }
+
+    private func circular(_ s: ListenSnapshot) -> some View {
+        Button(intent: ToggleListeningIntent()) {
+            ZStack {
+                AccessoryWidgetBackground()
+                Image(systemName: s.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.title3.weight(.semibold))
+            }
+        }
+        .buttonStyle(.plain)
+        .widgetAccentable()
+    }
+
+    private func rectangular(_ s: ListenSnapshot) -> some View {
+        HStack(spacing: 8) {
+            Button(intent: ToggleListeningIntent()) {
+                Image(systemName: s.isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 30))
+            }
+            .buttonStyle(.plain)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label(s)).font(.caption2.weight(.semibold))
+                Text(s.title).font(.headline).lineLimit(1)
+                Text(s.artist).font(.caption2).lineLimit(1)
+            }
+        }
+        .widgetAccentable()
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

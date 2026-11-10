@@ -22,7 +22,7 @@ struct LearningView: View {
                     Button("Commencer") { setup = true }.buttonStyle(BigButtonStyle())
                 }
                 .padding(24)
-                .glass(26)
+                .wirdGlass(26)
                 .padding(20)
             }
         }
@@ -59,7 +59,7 @@ struct LearningView: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glass(26)
+            .wirdGlass(26)
 
             // L'objectif.
             VStack(alignment: .leading, spacing: 12) {
@@ -87,7 +87,7 @@ struct LearningView: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glass(26)
+            .wirdGlass(26)
 
             // Projection.
             VStack(alignment: .leading, spacing: 12) {
@@ -101,7 +101,7 @@ struct LearningView: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glass(26)
+            .wirdGlass(26)
         }
         .padding(20)
     }

@@ -29,7 +29,7 @@ struct CourseView: View {
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity)
-                    .glass(26)
+                    .wirdGlass(26)
                 }
             }
             .padding(20)
@@ -56,7 +56,7 @@ struct CourseView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glass(26)
+        .wirdGlass(26)
     }
 
     private func settings(_ c: Course) -> some View {
@@ -82,7 +82,7 @@ struct CourseView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glass(26)
+        .wirdGlass(26)
     }
 
     private func time(_ c: Course) -> Date {
@@ -123,7 +123,7 @@ struct Countdown: View {
         }
         .padding(big ? 20 : 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glass(26)
+        .wirdGlass(26)
     }
 
     private func unit(_ v: Int, _ label: String) -> some View {
@@ -175,6 +175,6 @@ struct CourseProgress: View {
         }
         .padding(compact ? 16 : 18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glass(26)
+        .wirdGlass(26)
     }
 }
