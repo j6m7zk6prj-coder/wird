@@ -59,7 +59,11 @@ struct RootView: View {
         .onChange(of: theme) { applyTheme() }
         // Widgets : mis à jour à chaque case cochée, à l'ouverture et quand on quitte l'app.
         .onChange(of: store.loaded) { connectWidgets() }
-        .onChange(of: phase) { if store.loaded { WidgetBridge.publish(journal, store) } }
+        .onChange(of: phase) {
+            guard store.loaded else { return }
+            if phase == .active { WidgetBridge.applyChecks(journal, store) }
+            WidgetBridge.publish(journal, store)
+        }
         .onAppear { connectWidgets() }
     }
 
@@ -67,6 +71,7 @@ struct RootView: View {
         guard store.loaded else { return }
         let j = journal, s = store
         journal.onSave = { WidgetBridge.publish(j, s) }
+        WidgetBridge.applyChecks(journal, store)
         WidgetBridge.publish(journal, store)
     }
 

@@ -186,8 +186,8 @@ final class Journal {
     }
 
     /// Versets par jour pour tenir l'objectif de la semaine, à partir d'une position.
-    func learningChunk(_ q: QuranStore, now: Date = .now) -> DayChunk? {
-        guard let l = learning else { return nil }
+    func learningChunk(_ q: QuranStore, now: Date = .now, using alt: Learning? = nil) -> DayChunk? {
+        guard let l = alt ?? learning else { return nil }
         let today = Day.key(now)
         let seq = q.sequence(l.direction)
         let start = l.dayKey == today ? l.dayStart : l.position
@@ -196,7 +196,7 @@ final class Journal {
         if let c = l.dayCount, l.dayKey == today {
             end = min(seq.count, start + max(1, c))
         } else {
-            end = q.advance(seq, from: start, pages: coursePlan(q, now: now)?.today ?? l.pagesPerWeek / 7, limit: seq.count)
+            end = q.advance(seq, from: start, pages: coursePlan(q, now: now, using: l)?.today ?? l.pagesPerWeek / 7, limit: seq.count)
         }
         return DayChunk(seq: seq, from: start, to: end, done: l.log[today] != nil)
     }
@@ -249,8 +249,8 @@ final class Journal {
         knownPages(q) / Double(max(1, revision?.days ?? 14))
     }
 
-    func revisionChunk(_ q: QuranStore, now: Date = .now) -> DayChunk? {
-        guard let r = revision, let k = known(q), !k.isEmpty else { return nil }
+    func revisionChunk(_ q: QuranStore, now: Date = .now, using alt: Revision? = nil) -> DayChunk? {
+        guard let r = alt ?? revision, let k = known(q), !k.isEmpty else { return nil }
         let today = Day.key(now)
         var start = r.dayKey == today ? r.dayStart : r.position
         if start >= k.count { start = 0 }
@@ -295,6 +295,120 @@ final class Journal {
         r.dayCount = max(1, min(c.seq.count - c.from, (c.to - c.from) + delta))
         revision = r
         save()
+    }
+
+    // MARK: Widgets
+
+    /// L'apprentissage comme si tu cochais (ou décochais) aujourd'hui.
+    func learningFlipped(_ q: QuranStore, now: Date = .now) -> Learning? {
+        guard var l = learning, let c = learningChunk(q, now: now) else { return nil }
+        let key = Day.key(now)
+        if l.log[key] != nil {
+            l.position = l.dayStart
+            l.log[key] = nil
+        } else {
+            guard !c.isEmpty else { return nil }
+            l.dayKey = key
+            l.dayStart = c.from
+            l.dayCount = c.to - c.from
+            l.position = c.to
+            l.log[key] = c.to - c.from
+        }
+        return l
+    }
+
+    /// La révision comme si tu cochais (ou décochais) aujourd'hui.
+    func revisionFlipped(_ q: QuranStore, now: Date = .now) -> Revision? {
+        guard var r = revision, let c = revisionChunk(q, now: now) else { return nil }
+        let key = Day.key(now)
+        if r.log[key] != nil {
+            r.position = r.dayStart
+            r.tours = r.dayTours
+            r.log[key] = nil
+        } else {
+            guard !c.isEmpty else { return nil }
+            r.dayKey = key
+            r.dayCount = c.to - c.from
+            r.dayStart = c.from
+            r.dayTours = r.tours
+            r.position = c.to
+            if r.position >= c.seq.count {
+                r.position = 0
+                r.tours += 1
+            }
+            r.log[key] = c.to - c.from
+        }
+        return r
+    }
+
+    /// Le programme des prochains jours (aujourd'hui compris), si tu coches chaque jour.
+    func learningForecast(_ q: QuranStore, from now: Date = .now, days: Int) -> [(date: Date, chunk: DayChunk)] {
+        guard var l = learning else { return [] }
+        var out: [(date: Date, chunk: DayChunk)] = []
+        for i in 0..<days {
+            let date = i == 0 ? now : Day.add(i, to: Day.start(now)).addingTimeInterval(60)
+            guard let c = learningChunk(q, now: date, using: l), !c.isEmpty else { break }
+            out.append((date: date, chunk: c))
+            let key = Day.key(date)
+            if l.log[key] == nil {
+                l.dayKey = key
+                l.dayStart = c.from
+                l.dayCount = c.to - c.from
+                l.position = c.to
+                l.log[key] = c.to - c.from
+            }
+        }
+        return out
+    }
+
+    /// Ce que tu as coché sur les widgets depuis la dernière ouverture de l'app.
+    func applyWidgetChecks(_ checks: [WidgetCheck], _ q: QuranStore) {
+        var changed = false
+        for c in checks {
+            if c.kind == "learning", var l = learning {
+                if c.done, l.log[c.day] == nil, c.to > c.from {
+                    let start = l.dayKey == c.day ? l.dayStart : l.position
+                    guard start == c.from else { continue }
+                    l.dayKey = c.day
+                    l.dayStart = c.from
+                    l.dayCount = c.to - c.from
+                    l.position = c.to
+                    l.log[c.day] = c.to - c.from
+                } else if !c.done, l.log[c.day] != nil, l.dayKey == c.day, l.position == c.to {
+                    l.position = l.dayStart
+                    l.log[c.day] = nil
+                } else {
+                    continue
+                }
+                learning = l
+                changed = true
+            } else if c.kind == "revision", var r = revision, let k = known(q) {
+                if c.done, r.log[c.day] == nil, c.to > c.from {
+                    r.dayKey = c.day
+                    r.dayCount = c.to - c.from
+                    r.dayStart = c.from
+                    r.dayTours = r.tours
+                    r.position = c.to
+                    if r.position >= k.count {
+                        r.position = 0
+                        r.tours += 1
+                    }
+                    r.log[c.day] = c.to - c.from
+                } else if !c.done, r.log[c.day] != nil, r.dayKey == c.day {
+                    r.position = r.dayStart
+                    r.tours = r.dayTours
+                    r.log[c.day] = nil
+                } else {
+                    continue
+                }
+                revision = r
+                changed = true
+            }
+        }
+        if changed {
+            message = "Coché depuis le widget"
+            save()
+        }
     }
 
     // MARK: Journal
@@ -391,8 +505,8 @@ final class Journal {
 
     /// Combien apprendre aujourd'hui pour tenir l'objectif avant le cours.
     /// Exemple : 3 pages, déjà 1,5 page faite, cours dans 3 jours → 0,5 page par jour.
-    func coursePlan(_ q: QuranStore, now: Date = .now) -> CoursePlan? {
-        guard let l = learning, var end = courseDay(now) else { return nil }
+    func coursePlan(_ q: QuranStore, now: Date = .now, using alt: Learning? = nil) -> CoursePlan? {
+        guard let l = alt ?? learning, var end = courseDay(now) else { return nil }
         let today = Day.start(now)
         // Le jour du cours, ce que tu apprends compte pour le cours suivant.
         if end <= today { end = Day.add(7, to: end) }

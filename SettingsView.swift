@@ -42,6 +42,18 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    LabeledContent("Widgets", value: WirdShared.group == nil ? "Non reliés" : "Reliés")
+                } header: {
+                    Text("Widgets")
+                } footer: {
+                    if let g = WirdShared.group {
+                        Text("Groupe partagé : \(g)")
+                    } else {
+                        Text("Les widgets ne trouvent pas le groupe partagé avec l’app. Réinstalle Wird avec iLoader.")
+                    }
+                }
+
+                Section {
                     Button("Sources") { about = true }
                     Button("Tout effacer", role: .destructive) { confirmReset = true }
                 }
